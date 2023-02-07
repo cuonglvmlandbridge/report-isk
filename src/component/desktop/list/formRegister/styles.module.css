@@ -1,0 +1,14 @@
+.formRegister label {
+    min-width: 200px;
+}
+
+.formRegister {
+    padding: 16px;
+}
+
+
+@media screen and (max-width: 992px) {
+    .formRegister button {
+        margin-left: 0;
+    }
+}

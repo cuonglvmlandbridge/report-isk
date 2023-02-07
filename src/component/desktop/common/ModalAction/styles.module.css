@@ -1,0 +1,42 @@
+.groupButton {
+    display: flex;
+}
+
+.button {
+    height: 36px;
+    background: #3498db;
+    border-radius: 5px;
+    display: flex;
+    flex-direction: row;
+    justify-content: center;
+    align-items: center;
+    width: 100%;
+    margin-top: 20px;
+}
+
+.button span {
+    font-weight: 500;
+}
+
+.buttonCancel {
+    margin-right: 20px;
+    background: #e5edfe;
+}
+
+.buttonCancel span {
+    color: #333;
+}
+
+.buttonOk span {
+    color: #fff;
+}
+
+.buttonOk:hover {
+    height: 36px;
+    background: #3498db !important;
+    border-radius: 5px;
+    display: flex;
+    flex-direction: row;
+    justify-content: center;
+    align-items: center;
+}

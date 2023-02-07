@@ -1,0 +1,189 @@
+* {
+    font-family: 'Noto Sans JP', sans-serif !important;
+}
+
+.gaia-argoui-app-index-pager {
+    display: none;
+}
+
+.ant-table-thead .ant-table-cell {
+    background: #e5edfe !important;
+    border-bottom: 1px solid #ccc !important;
+    border-right: 1px solid #ccc !important;
+}
+
+.ant-table-tbody .ant-table-cell {
+    border-bottom: 1px solid #ccc !important;
+    border-right: 1px solid #ccc !important;
+}
+
+#record-gaia {
+    flex-direction: column;
+}
+
+.fp-tabsHeader {
+    display: block !important;
+}
+
+.fp-tabContent > div {
+    margin: 0 15px !important;
+}
+
+.row-gaia .control-group-gaia {
+    border: none !important;
+    min-width: 100% !important;
+}
+
+.row-gaia .control-group-field-gaia {
+    border: none !important;
+    min-width: 100% !important;
+}
+
+#record-gaia .group-label-gaia {
+    display: block;
+    background: #e5edfe;
+    margin-left: 0;
+    font-weight: bold;
+}
+
+#record-gaia .control-group-field-gaia {
+    margin-left: 0;
+    padding-left: 0;
+}
+
+#record-gaia .clearFix-cybozu {
+    margin: 0;
+}
+
+#record-gaia .control-gaia {
+    min-width: 370px;
+}
+
+#record-gaia .control-show-gaia {
+    display: flex;
+    margin-bottom: 15px;
+}
+
+#record-gaia .control-show-gaia .control-label-gaia {
+    min-width: 120px;
+}
+
+#record-gaia .control-show-gaia .control-value-gaia {
+    width: calc(100% - 120px);
+}
+
+/*.layout-gaia.showlayout-gaia .group-label-gaia {*/
+/*    display: none !important;*/
+/*}*/
+
+/*tabs custom*/
+
+.tabsCustom {
+    margin-bottom: 25px;
+    margin-left: 8px;
+    display: flex;
+}
+
+.tabsCustom .tabItem {
+    padding: 10px 15px;
+    min-width: 120px;
+    background: #e5edfe;
+    border: 1px solid #ccc;
+    cursor: pointer;
+    text-align: center;
+}
+
+.tabsCustom .tabItem.active {
+    background: #fff ;
+}
+
+/*.gaia-header, .gaia-header-spacer {*/
+/*    display: none;*/
+/*}*/
+
+#appForm-gaia {
+    display: none;
+}
+
+.dNone {
+    display: none !important;
+}
+
+.showlayout-gaia .row-gaia .control-value-gaia {
+    background: none;
+}
+
+.mainAppCustom .btnBack {
+    margin-left: 16px;
+}
+
+.colorRed {
+    color: red;
+}
+
+.cursor {
+    cursor: pointer;
+}
+
+.editablelayout-gaia {
+    display: none;
+}
+
+.ant-select-selector,
+textarea,
+:where(.css-dev-only-do-not-override-acm2ia).ant-picker,
+:where(.css-dev-only-do-not-override-acm2ia).ant-input-number .ant-input-number-input,
+:where(.css-dev-only-do-not-override-acm2ia).ant-input-number{
+    border-radius: unset !important;
+    box-shadow: 2px 2px 4px #f5f5f5 inset, -2px -2px 4px #f5f5f5 inset;
+    line-height: 40px;
+}
+
+.ant-select-selector,
+:where(.css-dev-only-do-not-override-acm2ia).ant-picker,
+:where(.css-dev-only-do-not-override-acm2ia).ant-input-number .ant-input-number-input,
+:where(.css-dev-only-do-not-override-acm2ia).ant-input-number {
+    height: 40px !important;
+}
+
+:where(.css-dev-only-do-not-override-acm2ia).ant-select-single .ant-select-selector .ant-select-selection-item, :where(.css-dev-only-do-not-override-acm2ia).ant-select-single .ant-select-selector .ant-select-selection-placeholder {
+    line-height: 40px !important;
+}
+
+.ant-table-content table {
+    border-top: 1px solid #ccc;
+    border-left: 1px solid #ccc;
+}
+
+.gaia-argoui-app-index-toolbar, .gaia-argoui-app-toolbar {
+    display: none;
+}
+
+.gaia-argoui-app-show-sidebar {
+    display: none;
+}
+
+.showlayout-gaia {
+    display: none;
+}
+
+/*mobile*/
+.gaia-mobile-v2-app-index-navigationbar,
+.gaia-mobile-app-customview-pager,
+.gaia-mobile-v2-ui-tabview-contents,
+.gaia-mobile-v2-ui-tabview-tabbar,
+.gaia-mobile-v2-viewpanel-footer {
+    display: none !important;
+}
+
+.gaia-mobile-v2-app-record-recordtitle ,
+.gaia-mobile-viewcontroller nav,
+.gaia-mobile-v2-viewpanel-header{
+    display: none !important;
+}
+
+@media screen and (max-width: 992px) {
+    label {
+        padding: 0 !important;
+    }
+}
