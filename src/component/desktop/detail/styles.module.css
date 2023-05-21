@@ -1,11 +1,11 @@
-.item > span:first-child {
+.item span:first-child {
     min-width: 150px;
     margin-right: 10px;
     display: inline-block;
 }
 
 .item {
-    margin-bottom: 20px;
+    margin-bottom: 15px;
 }
 
 .detail {
@@ -15,19 +15,13 @@
 
 .item img {
     cursor: pointer;
-    border: 1px solid #ccc;
-    box-shadow: 0 3px 10px #ccc;
 }
 
-.itemImg {
-    display: flex;
-    align-items: center;
+.item span {
+    word-break: break-all;
 }
 
-.itemImg img {
-    margin-right: 20px;
-    width: 100px;
-    height: 100px;
-    object-fit: cover;
-    margin-bottom: 5px;
+.btnCopy {
+    margin-top: 30px;
+    margin-left: 20px;
 }

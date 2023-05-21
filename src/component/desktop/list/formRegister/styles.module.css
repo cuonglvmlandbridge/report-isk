@@ -6,9 +6,6 @@
     padding: 16px;
 }
 
-
-@media screen and (max-width: 992px) {
-    .formRegister button {
-        margin-left: 0;
-    }
+.formRegister button {
+    margin-left: 250px;
 }

@@ -7,10 +7,10 @@ import {ArrowLeftOutlined} from '@ant-design/icons';
 import {formatMoney} from '../../../utils/common';
 import CardComponent from '../common/card/CardComponent';
 
-const idApp = kintone.app.getId() || kintone.mobile.app.getId();
+const idApp = kintone.app.getId();
 
-const fetchFileKey = (data, setFileList, fileList, index) => {
-  let url = `${window.location.origin}/k/v1/file.json?fileKey=` + data[index].fileKey;
+const fetchFileKey = (fileKey, setFileList) => {
+  let url = `${window.location.origin}/k/v1/file.json?fileKey=` + fileKey;
   let xhr = new XMLHttpRequest();
   xhr.open('GET', url);
   xhr.setRequestHeader('X-Requested-With', 'XMLHttpRequest');
@@ -24,26 +24,21 @@ const fetchFileKey = (data, setFileList, fileList, index) => {
       reader.readAsDataURL(xhr.response);
       reader.onloadend = function() {
         let base64data = reader.result;
-        let newFileList = [...fileList, base64data]
-
-        setFileList(newFileList);
-
-        if(data.length > index + 1) {
-          fetchFileKey(data, setFileList, newFileList, index + 1)
-        }
+        setFileList(base64data);
         return;
       };
     } else {
       // error
+      console.log(xhr.responseText);
     }
   };
   xhr.send();
 };
 
-export default function Detail({record, isAdmin, isMobile}) {
+export default function Detail({record, isAdmin}) {
 
-  const [imgBill, setImgBill] = useState([]);
-  const [imgReceipt, setImgReceipt] = useState([]);
+  const [imgBill, setImgBill] = useState();
+  const [imgReceipt, setImgReceipt] = useState();
   const refCopy = useRef();
 
   const onPreview = (file) => {
@@ -63,16 +58,15 @@ export default function Detail({record, isAdmin, isMobile}) {
       value: formatMoney(record.total_revenue.value)
     },
     {
-      id: 4,
-      text: '人件費',
-      value: formatMoney(record.revenue_staff.value)
-    },
-    {
       id: 3,
       text: '経費',
       value: formatMoney(record.expenses.value)
+    },
+    {
+      id: 4,
+      text: '人件費',
+      value: formatMoney(record.revenue_staff.value)
     }
-
   ];
 
   const dataAfter = [
@@ -90,16 +84,16 @@ export default function Detail({record, isAdmin, isMobile}) {
 
   useEffect(() => {
     if (record?.bill?.value?.length) {
-      fetchFileKey(record?.bill?.value, setImgBill, imgBill, 0)
+      fetchFileKey(record?.bill?.value[0].fileKey, setImgBill);
     }
 
     if (record?.receipt?.value?.length) {
-      fetchFileKey(record?.receipt?.value, setImgReceipt, imgReceipt, 0)
+      fetchFileKey(record?.receipt?.value[0].fileKey, setImgReceipt);
     }
   }, [record]);
 
   return (
-    <MainLayout isAdmin={isAdmin} isMobile={isMobile}>
+    <MainLayout isAdmin={isAdmin}>
       <CardComponent
         title={'日報詳細'}
         btnLeft={'戻る'}
@@ -122,37 +116,25 @@ export default function Detail({record, isAdmin, isMobile}) {
               })
             }
             {
-              imgBill.length > 0 &&
-              <div className={`${styles.item} ${styles.itemImg}`}>
+              imgBill &&
+              <div className={styles.item}>
               <span>
-                伝票:
+                伝票
               </span>
-                <div>
-                  {
-                    imgBill.map((val, ind) => (
-                      <span key={ind}>
-                      <img src={val} alt="" width={150} onClick={() => onPreview(val)}/>
-                    </span>
-                    ))
-                  }
-                </div>
+                <span>
+                <img src={imgBill} alt="" width={150} onClick={() => onPreview(imgBill)}/>
+              </span>
               </div>
             }
             {
-              imgReceipt.length > 0 &&
-              <div className={`${styles.item} ${styles.itemImg}`}>
+              imgReceipt &&
+              <div className={styles.item}>
               <span>
-                レシート:
+                レシート
               </span>
-                <div>
-                  {
-                    imgReceipt.map((val, ind) => (
-                      <span key={ind}>
-                      <img src={val} alt="" width={150} onClick={() => onPreview(val)}/>
-                    </span>
-                    ))
-                  }
-                </div>
+                <span>
+                <img src={imgReceipt} alt="" width={150} onClick={() => onPreview(imgReceipt)}/>
+              </span>
               </div>
             }
 

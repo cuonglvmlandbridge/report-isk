@@ -17,11 +17,9 @@ const DEFAULT_PAGE_SIZE = 10;
 
 const FORMAT_DATE = 'YYYY/MM/DD';
 
-const idApp = kintone.app.getId() || kintone.mobile.app.getId();
+const idApp = kintone.app.getId();
 
-const FORMAT_DATETIME = 'YYYY/MM/DD HH:mm';
-
-export default function TableList({isAdmin, isMobile}) {
+export default function TableList({isAdmin}) {
 
   const [data, setData] = useState([]);
   const [page, setPage] = useState(1);
@@ -30,11 +28,12 @@ export default function TableList({isAdmin, isMobile}) {
   const [showModal, setShowModal] = useState(false);
   const [record, setRecord] = useState();
   const [params, setParams] = useState({
-    app: idApp,
+    app: kintone.app.getId(),
     query: `limit ${page * DEFAULT_PAGE_SIZE} offset 0`,
-    fields: ['$id', 'date', 'date_2', 'total_revenue', 'user_update', 'Updated_datetime'],
+    fields: ['$id', 'date', 'total_revenue'],
     totalCount: true
   });
+  const [fields, setFields] = useState({});
 
   const fetchRecords = async (payload) => {
     setLoading(true);
@@ -55,12 +54,20 @@ export default function TableList({isAdmin, isMobile}) {
     fetchRecords(params);
   }, [params]);
 
+  useEffect(() => {
+    kintone.api(kintone.api.url('/k/v1/app/form/fields', true), 'GET', {'app': idApp}, function(resp) {
+      // success
+      setFields(resp.properties);
+    }, function(error) {
+      // error
+    });
+  }, []);
+
   const columns = [
     {
       title: '日付',
       dataIndex: 'date',
       key: '日付',
-      width: 100,
       align: 'center',
     },
     {
@@ -68,45 +75,20 @@ export default function TableList({isAdmin, isMobile}) {
       dataIndex: 'total_revenue',
       key: '総売上',
       align: 'center',
-      width: 100,
       render: (item) => formatMoney(item)
     },
     {
-      title: '更新者',
-      dataIndex: 'user_update',
-      key: '更新者',
-      width: 100,
-      align: 'center',
-    },
-    {
-      title: '更新日時',
-      dataIndex: 'Updated_datetime',
-      key: '更新日時',
-      width: 100,
-      align: 'center',
-      render: (item) => dayjs(item).format(FORMAT_DATETIME)
-    },
-    {
       title: '',
-      width: 120,
+      width: 220,
       key: 'action',
-      fixed: 'right',
       render: (record) => (
         <div className={styles.btnGroup}>
           <div className={styles.btnTop}>
-            <Button type={'text'} onClick={() => {
-              if(isMobile) {
-                window.location.href = `${window.location.origin}/k/m/${idApp}/show?record=${record.$id}`
-              }
-              else window.location.href = `${window.location.origin}/k/${idApp}/show#record=${record.$id}`
-            }}>
+            <Button type={'text'} onClick={() => window.location.href = `${window.location.origin}/k/${idApp}/show#record=${record.$id}`}>
               詳細
             </Button>
             <Button type={'text'}
-                    onClick={() => {
-                      if(isMobile) window.location.href = `${window.location.origin}/k/m/${idApp}/show?record=${record.$id}#mode=edit`
-                      else window.location.href = `${window.location.origin}/k/${idApp}/show#record=${record.$id}&mode=edit`
-                    }}>
+                    onClick={() => window.location.href = `${window.location.origin}/k/${idApp}/show#record=${record.$id}&mode=edit`}>
               編集
             </Button>
             <Button type={'text'} onClick={() => {
@@ -152,13 +134,10 @@ export default function TableList({isAdmin, isMobile}) {
     let arrFilter = [];
 
     if (payload.date) {
-      console.log(payload.date)
-      // arrFilter.push(`date like "${dayjs(payload.date).format(FORMAT_DATE)}" `);
-      arrFilter.push(`date_2 >= "${dayjs(payload.date[0]).format('YYYY-MM-DD')}" and date_2 <= "${dayjs(payload.date[1]).format('YYYY-MM-DD')}" `);
+      arrFilter.push(`date like "${dayjs(payload.date).format(FORMAT_DATE)}" `);
     }
     if (payload.month) {
-      console.log(payload.month)
-      arrFilter.push(`month = "${+dayjs(payload.month).format('MM')}" and year = "${dayjs(payload.month).format('YYYY')}" `);
+      arrFilter.push(`month = "${+payload.month}" `);
     }
     if (payload.year) {
       arrFilter.push(`year = "${dayjs(payload.year).format('YYYY')}" `);
@@ -177,21 +156,10 @@ export default function TableList({isAdmin, isMobile}) {
   };
 
   return (
-    <MainLayout isAdmin={isAdmin} isMobile={isMobile}>
-      <CardComponent
-        title={'日報一覧'}
-        btnRight={'新規登録'}
-        onClickRight={() => {
-          if(isMobile) {
-            window.location.href = `${window.location.origin}/k/m/${idApp}/edit`
-          }
-          else {
-            window.location.href = `${window.location.origin}/k/${idApp}/edit`
-          }
-        } }
-      >
-        <FilterList onFinish={onFinish}/>
-        <Table dataSource={data} columns={columns} pagination={false} loading={loading} scroll={{x: 700}}/>
+    <MainLayout isAdmin={isAdmin}>
+      <CardComponent title={'日報一覧'} btnRight={'新規登録'} onClickRight={() => window.location.href = `${window.location.origin}/k/${idApp}/edit` }>
+        <FilterList onFinish={onFinish} fields={fields}/>
+        <Table dataSource={data} columns={columns} pagination={false} loading={loading}/>
         <Pagination total={total} page={page} onChangePage={handleChangePage} defaultPageSize={DEFAULT_PAGE_SIZE}/>
       </CardComponent>
       {

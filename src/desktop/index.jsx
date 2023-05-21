@@ -96,49 +96,4 @@ import {logout} from '../utils/common';
     }
   });
 
-  kintone.events.on(['mobile.app.record.index.show'], async (event) => {
-    let data = await routerPage();
-    if (data.check) {
-      render(<TableList
-        isAdmin={data.isAdmin}
-        isMobile={true}
-      />, document.getElementById('root'));
-    } else {
-      logout();
-    }
-  });
-
-  kintone.events.on(['mobile.app.record.create.show'], async (event) => {
-    let data = await routerPage();
-    if (data.check) {
-      $('#appForm-gaia').remove();
-      render(<FormRegister event={event} isMobile={true} isAdmin={data.isAdmin}/>,
-        document.getElementsByClassName('gaia-mobile-v2-ui-tabview')[0]);
-    } else {
-      logout();
-    }
-  });
-
-  kintone.events.on(['mobile.app.record.edit.show'], async (event) => {
-    console.log(event, 123)
-    let data = await routerPage();
-    if (data.check) {
-      $('#appForm-gaia').remove();
-      render(<FormRegister event={event} isMobile={true} type={'edit'} isAdmin={data.isAdmin}/>,
-        document.getElementsByClassName('gaia-mobile-v2-ui-tabview')[0]);
-    } else {
-      logout();
-    }
-  });
-
-  kintone.events.on(['mobile.app.record.detail.show'], async (event) => {
-    let data = await routerPage();
-    if (data.check) {
-      render(<Detail record={event.record} isMobile={true} isAdmin={data.isAdmin}/>,
-        document.getElementsByClassName('gaia-mobile-v2-ui-tabview')[0]);
-    } else {
-      logout();
-    }
-  });
-
 })(kintone.$PLUGIN_ID);

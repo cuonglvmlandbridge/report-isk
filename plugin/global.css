@@ -125,6 +125,12 @@
     cursor: pointer;
 }
 
+.ant-upload-list-item-actions a {
+    position: absolute;
+    left: 50%;
+    transform: translateX(-50%);
+}
+
 .editablelayout-gaia {
     display: none;
 }
@@ -165,25 +171,4 @@ textarea,
 
 .showlayout-gaia {
     display: none;
-}
-
-/*mobile*/
-.gaia-mobile-v2-app-index-navigationbar,
-.gaia-mobile-app-customview-pager,
-.gaia-mobile-v2-ui-tabview-contents,
-.gaia-mobile-v2-ui-tabview-tabbar,
-.gaia-mobile-v2-viewpanel-footer {
-    display: none !important;
-}
-
-.gaia-mobile-v2-app-record-recordtitle ,
-.gaia-mobile-viewcontroller nav,
-.gaia-mobile-v2-viewpanel-header{
-    display: none !important;
-}
-
-@media screen and (max-width: 992px) {
-    label {
-        padding: 0 !important;
-    }
 }

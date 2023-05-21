@@ -1,4 +1,5 @@
-import React, {useState} from 'react';
+// eslint-disable-next-line no-unused-vars
+import React from 'react';
 import Cookie from 'js-cookie';
 import {Button} from 'antd';
 import styles from './styles.module.css';
@@ -10,17 +11,11 @@ import {
   ID_APP_REPORT,
   ID_APP_REGISTER,
   ID_APP_AUTH,
-  ID_APP_TIPS, ID_APP_SEAT, ID_APP_SALARY, ID_APP_SETTING, ID_APP_RANK
+  ID_APP_TIPS, ID_APP_SEAT, ID_APP_SALARY, ID_APP_SETTING
 } from '../../common/const';
-import { MenuOutlined } from '@ant-design/icons';
 import {logout} from '../../../utils/common';
 
-const userISK = Cookie.get('userISK');
-const nameUserLogin = Cookie.get('nameUserLogin');
-
-export default function MainLayout({children, isAdmin, isMobile}) {
-
-  const [showNavbar, setShowNavbar] = useState(false)
+export default function MainLayout({children, isAdmin}) {
 
   const buttonMenu = [
     {
@@ -87,6 +82,11 @@ export default function MainLayout({children, isAdmin, isMobile}) {
       onclick: () => window.location.href = `${URL_WEB}/k/${ID_APP_CUSTOMER}/`
     },
     {
+      id: 10,
+      text: '座席マスタ',
+      onclick: () => window.location.href = `${URL_WEB}/k/${ID_APP_SEAT}/`
+    },
+    {
       id: 5,
       text: '勤怠一覧',
       onclick: () => window.location.href = `${URL_WEB}/k/${ID_APP_REGISTER}/`
@@ -118,35 +118,20 @@ export default function MainLayout({children, isAdmin, isMobile}) {
       onclick: () => window.location.href = `${URL_WEB}/k/${ID_APP_SETTING}/`
     },
     {
-      id: 10,
-      text: '座席マスタ',
-      onclick: () => window.location.href = `${URL_WEB}/k/${ID_APP_SEAT}/`
-    },
-    {
-      id: 13,
-      text: 'ランク設定',
-      onclick: () => window.location.href = `${URL_WEB}/k/${ID_APP_RANK}/`
-    },
-    {
       id: 9,
       text: 'ログアウト',
       onclick: () => logout()
     },
   ];
 
-  const handleClickNavbar = () => {
-    setShowNavbar(!showNavbar)
-    document.body.style.overflow = !showNavbar ? 'hidden' : ''
-    document.body.style.height = !showNavbar ? 'auto' : '100%'
-  }
-
   return (
     <div className={styles.mainApp}>
-      <div className={`${isMobile ? styles.menuMobile : styles.menu}`}>
+      <div className={styles.menu}>
         {
-          !isMobile && (isAdmin ? buttonMenuAdmin : buttonMenu).map((val) => (
-            <div className={`${styles.menuItem} ${val.active && styles.active}`} key={val.id}>
+          (isAdmin ? buttonMenuAdmin : buttonMenu).map((val) => (
+            <div className={`${styles.menuItem} ${val?.active && styles.active}`} key={val.id}>
               <Button
+                type="primary"
                 onClick={val.onclick}
               >
                 {val.text}
@@ -154,37 +139,9 @@ export default function MainLayout({children, isAdmin, isMobile}) {
             </div>
           ))
         }
-        {
-          isMobile && (
-            <div className={styles.menu}>
-              <div className={styles.hamburgerMenu}>
-                <MenuOutlined style={{ fontSize: '25px', color: '#fff', marginBottom: '15px' }} onClick={handleClickNavbar} />
-                <div className={`${styles.overlay} ${showNavbar ? styles.active : ''}`} onClick={handleClickNavbar}> </div>
-                <div className={`${styles.menus} ${showNavbar ? styles.active : ''}`}>
-                  {
-                    (isAdmin ? buttonMenuAdmin : buttonMenu).map(val => (
-                      <div
-                        className={`${styles.menuItem}
-                       ${val.active && styles.active}`}
-                        key={val.id}
-                        onClick={val.onclick}
-                      >
-                        {val.text}
-                      </div>
-                    ))
-                  }
-                </div>
-              </div>
-
-              <div>
-                {nameUserLogin} ({userISK})
-              </div>
-            </div>
-          )
-        }
       </div>
 
-      {!showNavbar && children}
+      {children}
     </div>
   );
 }

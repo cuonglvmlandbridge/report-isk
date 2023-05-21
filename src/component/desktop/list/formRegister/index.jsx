@@ -10,7 +10,6 @@ import {ID_APP_CUSTOMER_COME, ID_APP_REGISTER, ID_APP_STAFF} from '../../../comm
 
 import styles from './styles.module.css';
 import CardComponent from '../../common/card/CardComponent';
-import Cookie from 'js-cookie';
 
 const {TextArea} = Input;
 
@@ -18,10 +17,10 @@ const idStaffApp = '6';
 
 const FORMAT_DATE_TIME = 'YYYY/MM/DD';
 
-const idApp = kintone.app.getId() || kintone.mobile.app.getId();
+const idApp = kintone.app.getId();
 
-const fetchFileKey = (data, setFileList, fileList, index) => {
-  let url = `${window.location.origin}/k/v1/file.json?fileKey=` + data[index].fileKey;
+const fetchFileKey = (fileKey, setFileList) => {
+  let url = `${window.location.origin}/k/v1/file.json?fileKey=` + fileKey;
   let xhr = new XMLHttpRequest();
   xhr.open('GET', url);
   xhr.setRequestHeader('X-Requested-With', 'XMLHttpRequest');
@@ -35,28 +34,23 @@ const fetchFileKey = (data, setFileList, fileList, index) => {
       reader.readAsDataURL(xhr.response);
       reader.onloadend = function() {
         let base64data = reader.result;
-        let newFileList = [...fileList,
+        setFileList([
           {
-            uid: data[index].fileKey,
+            uid: '-1',
             name: 'image.png',
             status: 'done',
             url: base64data,
-          }]
-
-        setFileList(newFileList);
-
-        if(data.length > index + 1) {
-          fetchFileKey(data, setFileList, newFileList, index + 1)
-        }
+          },
+        ]);
         return;
-      }
+      };
     } else {
       // error
       console.log(xhr.responseText);
     }
   };
   xhr.send();
-}
+};
 
 function fetchAllRecordsByDate(appId, time_start, opt_offset, opt_limit, opt_records) {
   let offset = opt_offset || 0;
@@ -111,26 +105,19 @@ function fetchAllRecordsStaff(idsString, opt_offset, opt_limit, opt_records) {
   });
 }
 
-const userISK = Cookie.get('nameUserLogin');
-
 export default function FormRegister({
   type,
   event,
-  isAdmin,
-  isMobile
+  isAdmin
 }) {
 
   const [form] = Form.useForm();
   const [staff, setStaff] = useState([]);
 
-  const [fileKeyBill, setFileKeyBill] = useState([]);
-  const [fileKeyBill2, setFileKeyBill2] = useState([]);
-  const [fileKeyReceipt, setFileKeyReceipt] = useState([]);
-  const [fileKeyReceipt2, setFileKeyReceipt2] = useState([]);
+  const [fileKeyBill, setFileKeyBill] = useState();
+  const [fileKeyReceipt, setFileKeyReceipt] = useState();
   const [fileListBill, setFileListBill] = useState([]);
   const [fileListReceipt, setFileListReceipt] = useState([]);
-
-  const [loadingImg, setLoadingImg] = useState(false);
 
   const renderModalContentDetail = (data) => {
     return (
@@ -171,59 +158,43 @@ export default function FormRegister({
     return new Blob([uInt8Array], {type: contentType});
   }
 
-  const handleChange = async  (value, type) => {
+  const handleChange = (value, type) => {
+    if (type === 'bill') {
+      setFileListBill(value.fileList);
+    } else {
+      setFileListReceipt(value.fileList);
+    }
 
-    const { status, response, uid } = value.file;
+    fetch(value?.file?.thumbUrl)
+      .then(res => {
+        console.log(value?.file?.thumbUrl);
+        return dataURLToBlob(value?.file?.thumbUrl);
+      })
+      .then(blob => {
+        let formDataPayload = new FormData();
+        formDataPayload.append('__REQUEST_TOKEN__', kintone.getRequestToken());
+        formDataPayload.append('file', blob, 'preview.png');
 
-    if (status === 'done' && response) {
-      setLoadingImg(true)
-      if (type === 'bill') {
-        let newFileBill2 = [...fileKeyBill2, uid];
-        setFileKeyBill2(newFileBill2);
-      } else {
-        let newFileReceipt2 = [...fileKeyReceipt2, uid];
-        setFileKeyReceipt2(newFileReceipt2);
-      }
-      const blob = await new Promise(resolve => {
-        const reader = new FileReader();
-        reader.readAsArrayBuffer(value.file.originFileObj);
-        reader.onload = () => {
-          resolve(new Blob([reader.result]));
-        };
-      });
-
-      let formDataPayload = new FormData();
-      formDataPayload.append('__REQUEST_TOKEN__', kintone.getRequestToken());
-      formDataPayload.append('file', blob, 'preview.png');
-
-      let url = `${window.location.origin}/k/v1/file.json`;
-      let xhr = new XMLHttpRequest();
-      xhr.open('POST', url);
-      xhr.setRequestHeader('X-Requested-With', 'XMLHttpRequest');
-      xhr.onload = function() {
-        if (xhr.status === 200) {
-          // success
-          const res = JSON.parse(xhr.responseText);
-          if (type === 'bill') {
-            let newFileBill = [...fileKeyBill, res.fileKey];
-            setFileKeyBill(newFileBill);
+        let url = `${window.location.origin}/k/v1/file.json`;
+        let xhr = new XMLHttpRequest();
+        xhr.open('POST', url);
+        xhr.setRequestHeader('X-Requested-With', 'XMLHttpRequest');
+        xhr.onload = function() {
+          if (xhr.status === 200) {
+            // success
+            const res = JSON.parse(xhr.responseText);
+            if (type === 'bill') {
+              setFileKeyBill(res?.fileKey);
+            } else {
+              setFileKeyReceipt(res?.fileKey);
+            }
           } else {
-            let newFileReceipt = [...fileKeyReceipt, res.fileKey];
-            setFileKeyReceipt(newFileReceipt);
+            // error
+            console.log(JSON.parse(xhr.responseText));
           }
-          setLoadingImg(false)
-        } else {
-          // error
-          console.log(JSON.parse(xhr.responseText));
-        }
-      };
-      xhr.send(formDataPayload);
-    }
-
-    if(type === 'bill') {
-      setFileListBill(value.fileList)
-    }
-    else setFileListReceipt(value.fileList)
+        };
+        xhr.send(formDataPayload);
+      });
   };
 
   const dummyRequest = ({
@@ -244,9 +215,6 @@ export default function FormRegister({
         'date': {
           'value': dayjs(payload.date).format(FORMAT_DATE_TIME)
         },
-        'date2': {
-          'value': dayjs(payload.date).format('MM/DD/YYYY')
-        },
         'month': {
           'value': dayjs(payload.date).month() + 1
         },
@@ -264,19 +232,6 @@ export default function FormRegister({
         },
         'comment': {
           'value': payload.comment
-        },
-        'user_update': {
-          'value' : userISK
-        },
-        'bill': {
-          'value': fileKeyBill.map(val => ({
-            "fileKey": val
-          }))
-        },
-        'receipt': {
-          'value': fileKeyReceipt.map(val => ({
-            "fileKey": val
-          }))
         }
       }
     };
@@ -295,31 +250,35 @@ export default function FormRegister({
       body.record = newRecord;
     }
 
-    // if(fileKeyBill.length) {
-    //   let newRecord = {
-    //     ...body.record,
-    //     'bill': {
-    //       'value': fileKeyBill.map(val => ({
-    //         "fileKey": val
-    //       }))
-    //     }
-    //   };
-    //
-    //   body.record = newRecord;
-    // }
-    //
-    // if(fileKeyReceipt.length) {
-    //   let newRecord = {
-    //     ...body.record,
-    //     'receipt': {
-    //       'value': fileKeyReceipt.map(val => ({
-    //         "fileKey": val
-    //       }))
-    //     }
-    //   };
-    //
-    //   body.record = newRecord;
-    // }
+    if (fileKeyBill) {
+      let newRecord = {
+        ...body.record,
+        'bill': {
+          'value': [
+            {
+              'fileKey': fileKeyBill
+            }
+          ]
+        }
+      };
+
+      body.record = newRecord;
+    }
+
+    if (fileKeyReceipt) {
+      let newRecord = {
+        ...body.record,
+        'receipt': {
+          'value': [
+            {
+              'fileKey': fileKeyReceipt
+            }
+          ]
+        }
+      };
+
+      body.record = newRecord;
+    }
 
     if(type === 'edit') {
       body.id = event.record.$id.value;
@@ -331,25 +290,16 @@ export default function FormRegister({
   };
 
   const onPreview = (file) => {
-    if(file.url) {
-      let pdfWindow = window.open("")
-      pdfWindow.document.write("<iframe width='100%' height='100%' src='" + encodeURI(file?.url) + "'></iframe>")
-    }
-    else {
-      const fileUrl = URL.createObjectURL(file.originFileObj);
-      window.open(fileUrl, '_blank');
-    }
-  }
+    let pdfWindow = window.open('');
+    pdfWindow.document.write('<iframe width=\'100%\' height=\'100%\' src=\'' + encodeURI(file?.url) + '\'></iframe>');
+  };
 
   const convertTimeDiff =  (time1, time2) => {
-    if (time1 && time2) {
-      const dateExp1 = dayjs(`2000-01-01 ${time1}`);
-      let dateExp2 = dayjs(`2000-01-01 ${time2}`);
-      dateExp2 = dateExp1.diff(dateExp2) > 0 ? dayjs(dayjs(dateExp2).add(1, 'day')) : dateExp2;
-      const timeDiff = dateExp2.diff(dateExp1);
-      return timeDiff / 1000;
-    } 
-    return 0;
+    const dateExp1 = dayjs(`2000-01-01 ${time1}`);
+    let dateExp2 = dayjs(`2000-01-01 ${time2}`);
+    dateExp2 = dateExp1.diff(dateExp2) > 0 ? dayjs(dayjs(dateExp2).add(1, 'day')) : dateExp2;
+    const timeDiff = dateExp2.diff(dateExp1);
+    return timeDiff / 1000;
   }
 
   const onValuesChange = async (payload, data) => {
@@ -370,30 +320,18 @@ export default function FormRegister({
             [val.$id.value]: val.salary.value
           })
         })
-
-        staffs.forEach((val) => fee += salarys[val.id_staff.value] * convertTimeDiff(val.time_in.value, val.time_out.value) / 3600);
+        fee = staffs.map((val) => convertTimeDiff(val.time_in.value, val.time_out.value) / 3600 * +salarys[val.id_staff.value]).reduce((a, b) => a + b, 0)
       }
       form.setFieldValue('total_revenue', total);
-      form.setFieldValue('revenue_staff', isNaN(fee) ? 0 : fee.toFixed(0));
+      form.setFieldValue('revenue_staff', fee);
     }
   };
-
-  const onRemove = (file, fileKey1, fileKey2, setFileKey1, setFileKey2) => {
-    const uid = file.uid;
-    const indexUid = fileKeyBill2.findIndex(val => val === uid);
-    let newFileKey2 = [...fileKey2];
-    let newFileKey1 = [...fileKey1];
-    newFileKey2.splice(indexUid, 1)
-    newFileKey1.splice(indexUid, 1)
-    setFileKey2(newFileKey2)
-    setFileKey1(newFileKey1)
-  }
 
   const renderModalContent = () => {
     const registerEdit = [
       {
         formItemProps: {
-          label: '来店日付',
+          label: '来店日時',
           name: 'date',
           labelAlign: 'left',
           rules: [{
@@ -422,19 +360,6 @@ export default function FormRegister({
         },
         renderInput: () => <InputNumber disabled min={1} addonAfter="円" formatter={(value) => `${value}`.replace(/\B(?=(\d{3})+(?!\d))/g, ',')}/>,
       },
-
-      {
-        formItemProps: {
-          label: '人件費',
-          name: 'revenue_staff',
-          labelAlign: 'left',
-          rules: [{
-            required: true,
-            message: 'Required'
-          }]
-        },
-        renderInput: () => <InputNumber min={1} disabled addonAfter="円" formatter={(value) => `${value}`.replace(/\B(?=(\d{3})+(?!\d))/g, ',')}/>,
-      },
       {
         formItemProps: {
           label: '経費',
@@ -449,36 +374,46 @@ export default function FormRegister({
       },
       {
         formItemProps: {
-          label: '伝票(任意)',
+          label: '人件費',
+          name: 'revenue_staff',
+          labelAlign: 'left',
+          rules: [{
+            required: true,
+            message: 'Required'
+          }]
+        },
+        renderInput: () => <InputNumber min={1} disabled addonAfter="円" formatter={(value) => `${value}`.replace(/\B(?=(\d{3})+(?!\d))/g, ',')}/>,
+      },
+      {
+        formItemProps: {
+          label: '伝票',
           name: 'bill',
           labelAlign: 'left',
         },
         renderInput: () => <Upload
           listType="picture-card"
-          maxCount={5}
+          maxCount={1}
           onChange={(file) => handleChange(file, 'bill')}
           customRequest={dummyRequest}
           fileList={fileListBill}
           onPreview={(file) => onPreview(file)}
-          onRemove={(file) => onRemove(file, fileKeyBill, fileKeyBill2, setFileKeyBill, setFileKeyBill2)}
         >
           画像を選択
         </Upload>,
       },
       {
         formItemProps: {
-          label: 'レシート(任意)',
+          label: 'レシート',
           name: 'receipt',
           labelAlign: 'left',
         },
         renderInput: () => <Upload
           listType="picture-card"
-          maxCount={5}
-          onChange={(file) => handleChange(file, 'receipt')}
+          maxCount={1}
+          onChange={(file) => handleChange(file, 'reicept')}
           customRequest={dummyRequest}
           fileList={fileListReceipt}
           onPreview={(file) => onPreview(file)}
-          onRemove={(file) => onRemove(file, fileKeyReceipt, fileKeyReceipt2, setFileKeyReceipt, setFileKeyReceipt2)}
         >
           画像を選択
         </Upload>
@@ -509,7 +444,7 @@ export default function FormRegister({
         <Form form={form} autoComplete="off" onFinish={onFinish} onValuesChange={onValuesChange}>
           {renderModalContentDetail(registerEdit)}
           <Form.Item>
-            <Button type="primary" htmlType="submit" disabled={loadingImg}>
+            <Button type="primary" htmlType="submit">
               {type === 'edit' ? '保存' : '登録'}
             </Button>
           </Form.Item>
@@ -533,48 +468,26 @@ export default function FormRegister({
 
   useEffect(() => {
     if (type === 'edit') {
-      let body = {
-        'app': idApp,
-        'id': kintone.app.record.getId() || kintone.mobile.app.record.getId()
-      };
-
-      kintone.api(kintone.api.url('/k/v1/record', true), 'GET', body, function(resp) {
-        // success
-        const data = resp.record;
-        form.setFieldsValue({
-          date: data?.date.value && dayjs(data?.date?.value),
-          total_revenue: data?.total_revenue?.value,
-          expenses: data?.expenses.value,
-          comment: data?.comment.value,
-          revenue_staff: data?.revenue_staff?.value,
-          user_charge: data.user_charge.value && JSON.stringify({
-            name: data.user_charge.value,
-            id: data.id_user_charge.value
-          })
-        });
-
-        if(data?.bill?.value?.length) {
-          let fileKeysOld = data.bill.value.map(val => val.fileKey);
-          setFileKeyBill(fileKeysOld);
-          setFileKeyBill2(fileKeysOld)
-          fetchFileKey(data?.bill?.value, setFileListBill, fileListBill, 0)
-        }
-        if(data?.receipt?.value?.length) {
-          let fileKeysOld = data.receipt.value.map(val => val.fileKey);
-          setFileKeyReceipt(fileKeysOld);
-          setFileKeyReceipt2(fileKeysOld)
-          fetchFileKey(data?.receipt?.value, setFileListReceipt, fileListReceipt, 0)
-        }
-      }, function(error) {
-        // error
-        console.log(error);
+      const data = event.record;
+      form.setFieldsValue({
+        date: data?.date.value && dayjs(data?.date?.value),
+        total_revenue: data?.total_revenue?.value,
+        expenses: data?.expenses.value,
+        comment: data?.comment.value,
+        revenue_staff: data?.revenue_staff?.value,
+        user_charge: data.user_charge.value && JSON.stringify({
+          name: data.user_charge.value,
+          id: data.id_user_charge.value
+        })
       });
 
+      data?.bill?.value?.length && fetchFileKey(data?.bill?.value[0].fileKey, setFileListBill);
+      data?.receipt?.value?.length && fetchFileKey(data?.receipt?.value[0].fileKey, setFileListReceipt);
     }
   }, [event, type]);
 
   return (
-    <MainLayout isAdmin={isAdmin} isMobile={isMobile}>
+    <MainLayout isAdmin={isAdmin}>
       <CardComponent
         title={type === 'edit' ? '日報編集' : '日報新規登録'}
         btnLeft={'戻る'}

@@ -18,6 +18,4 @@ export const ID_APP_SALARY = '13'
 
 export const ID_APP_SETTING = '15'
 
-export const ID_APP_RANK = '16'
-
 export const URL_WEB = window.location.origin

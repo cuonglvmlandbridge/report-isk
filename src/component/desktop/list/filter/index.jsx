@@ -36,13 +36,13 @@ export default function FilterList({onFinish, fields}) {
     return (
       <Row gutter={50} className={styles.formItem}>
         {data.map((el, index2) => (
-          <Col className="gutter-row" span={8} sm={12} xs={24} key={`${el?.formItemProps?.name}-${index2}`}>
+          <Col className="gutter-row" span={8} key={`${el?.formItemProps?.name}-${index2}`}>
             <Form.Item {...el.formItemProps}>
               {el.renderInput()}
             </Form.Item>
           </Col>
         ))}
-        <Col className="gutter-row" span={6} sm={6}>
+        <Col className="gutter-row" span={6}>
           <Button htmlType={'submit'} type={'primary'}>
             検索
           </Button>
@@ -59,8 +59,7 @@ export default function FilterList({onFinish, fields}) {
           name: 'date',
           labelAlign: 'left',
         },
-        // renderInput: () => <DatePicker allowClear placeholder={''} />,
-        renderInput: () => <DatePicker.RangePicker />
+        renderInput: () => <DatePicker allowClear placeholder={''} />,
       },
     ];
     const generalInformationInputMonth = [
@@ -70,15 +69,13 @@ export default function FilterList({onFinish, fields}) {
           name: 'month',
           labelAlign: 'left',
         },
-        // renderInput: () => <Select
-        //   style={{width: 250}}
-        //   options={Array.from({ length: 12 }, (v, i) => ({
-        //     label: `${i + 1}月`,
-        //     value: i + 1
-        //   }))}
-        // />
-        renderInput: () => <DatePicker picker="month" allowClear placeholder={''} />,
-
+        renderInput: () => <Select
+          style={{width: 250}}
+          options={Array.from({ length: 12 }, (v, i) => ({
+            label: `${i + 1}月`,
+            value: i + 1
+          }))}
+        />
       },
     ];
     const generalInformationInputYear = [
