@@ -23,10 +23,10 @@ export function formatMoney(value) {
 }
 
 export const logout = () => {
-  Cookie.remove('staffIdLogin');
-  Cookie.remove('userISK');
-  Cookie.remove('passISK');
-  Cookie.remove('userLogin');
+  Cookie.remove('staffIdLoginTest');
+  Cookie.remove('userISKTest');
+  Cookie.remove('passISKTest');
+  Cookie.remove('userLoginTest');
   window.location.href = `${window.location.origin}/k/${idAuth}`
 }
 
