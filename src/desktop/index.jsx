@@ -13,10 +13,10 @@ import {logout} from '../utils/common';
 
   const userLogin = kintone.getLoginUser();
 
-  const staffIdLogin = Cookie.get('staffIdLogin');
-  const userISK = Cookie.get('userISK');
-  const passISK = Cookie.get('passISK');
-  const userLoginCookie = Cookie.get('userLogin');
+  const staffIdLogin = Cookie.get('staffIdLoginTest');
+  const userISK = Cookie.get('userISKTest');
+  const passISK = Cookie.get('passISKTest');
+  const userLoginCookie = Cookie.get('userLoginTest');
 
   let body = {
     'app': ID_APP_STAFF,
