@@ -295,11 +295,14 @@ export default function FormRegister({
   };
 
   const convertTimeDiff =  (time1, time2) => {
-    const dateExp1 = dayjs(`2000-01-01 ${time1}`);
-    let dateExp2 = dayjs(`2000-01-01 ${time2}`);
-    dateExp2 = dateExp1.diff(dateExp2) > 0 ? dayjs(dayjs(dateExp2).add(1, 'day')) : dateExp2;
-    const timeDiff = dateExp2.diff(dateExp1);
-    return timeDiff / 1000;
+    if (time1 && time2) {
+      const dateExp1 = dayjs(`2000-01-01 ${time1}`);
+      let dateExp2 = dayjs(`2000-01-01 ${time2}`);
+      dateExp2 = dateExp1.diff(dateExp2) > 0 ? dayjs(dayjs(dateExp2).add(1, 'day')) : dateExp2;
+      const timeDiff = dateExp2.diff(dateExp1);
+      return timeDiff / 1000;
+    } 
+    return 0;
   }
 
   const onValuesChange = async (payload, data) => {
@@ -320,10 +323,11 @@ export default function FormRegister({
             [val.$id.value]: val.salary.value
           })
         })
-        fee = staffs.map((val) => convertTimeDiff(val.time_in.value, val.time_out.value) / 3600 * +salarys[val.id_staff.value]).reduce((a, b) => a + b, 0)
+        staffs.forEach((val) => fee += salarys[val.id_staff.value] * convertTimeDiff(val.time_in.value, val.time_out.value) / 3600);
       }
-      form.setFieldValue('total_revenue', total);
-      form.setFieldValue('revenue_staff', fee);
+
+      form.setFieldValue('revenue_staff', isNaN(fee) ? 0 : +fee.toFixed(0));
+      form.setFieldValue('revenue_staff', isNaN(fee) ? 0 : fee.toFixed(0));
     }
   };
 
