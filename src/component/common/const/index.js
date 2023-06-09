@@ -1,4 +1,4 @@
-export const ID_APP_CUSTOMER = '30'
+export const ID_APP_CUSTOMER = '44'
 
 export const ID_APP_STAFF = '31'
 
