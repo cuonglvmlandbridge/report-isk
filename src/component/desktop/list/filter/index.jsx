@@ -1,12 +1,10 @@
 // eslint-disable-next-line no-unused-vars
-import React, { useEffect, useMemo, useState } from 'react';
-import {Form, Input, Row, Col, Button, Select, DatePicker, Tabs} from 'antd';
-import {fetchAllRecordsCustomer} from '../../../../utils/common'
-
+import React, { useState } from 'react';
+import {Form, Row, Col, Button, Select, DatePicker, Tabs,  Space, Tag} from 'antd';
+import {formatMoney} from '../../../../utils/common';
 import styles from './styles.module.css';
-import {ID_APP_CUSTOMER} from '../../../common/const';
 
-export default function FilterList({onFinish, fields}) {
+export default function FilterList({onFinish, fields, totalRevenue, dayActive, getSelectedDay}) {
 
   const [form] = Form.useForm();
 
@@ -27,6 +25,38 @@ export default function FilterList({onFinish, fields}) {
     }
   ];
 
+
+  const days = [
+    {
+      value: '1',
+      label: '月曜日'
+    },
+    {
+      value: '2',
+      label: '火曜日'
+    },
+    {
+      value: '3',
+      label: '水曜日'
+    },
+    {
+      value: '4',
+      label: '木曜日'
+    },
+    {
+      value: '5',
+      label: '金曜日'
+    },    
+    {
+      value: '6',
+      label: '土曜日'
+    },
+    {
+      value: '0',
+      label: '日曜日'
+    }
+  ];
+
   const onChange = (key) => {
     form.resetFields()
     setTabActive(key)
@@ -36,16 +66,26 @@ export default function FilterList({onFinish, fields}) {
     return (
       <Row gutter={50} className={styles.formItem}>
         {data.map((el, index2) => (
-          <Col className="gutter-row" span={8} key={`${el?.formItemProps?.name}-${index2}`}>
+          <Col className="gutter-row" span={12} key={`${el?.formItemProps?.name}-${index2}`}>
             <Form.Item {...el.formItemProps}>
               {el.renderInput()}
-            </Form.Item>
+            </Form.Item>  
+            <Space size={20}>
+              {
+                days.map(({label, value}) => {
+                  return <Button key={value} className={value === dayActive && styles.activeDay} onClick={() => getSelectedDay(value)}>{label}</Button>
+                })
+              }
+            </Space>  
           </Col>
         ))}
         <Col className="gutter-row" span={6}>
           <Button htmlType={'submit'} type={'primary'}>
             検索
           </Button>
+        </Col>
+        <Col className={`gutter-row ${styles.flexCenter}`} span={6}>
+          検索: <span className={styles.fsLarge}>{totalRevenue > 0 ? formatMoney(totalRevenue) : `0円`}</span>
         </Col>
       </Row>
     );

@@ -6,14 +6,14 @@ import Pagination from '../../common/Pagination';
 import FilterList from './filter';
 import dayjs from 'dayjs';
 import styles from './styles.module.css';
-import FormRegister from './formRegister';
-import {ID_APP_CUSTOMER} from '../../common/const';
 import MainLayout from '../../layout/main';
 import CardComponent from '../common/card/CardComponent';
 import {formatMoney} from '../../../utils/common';
 import ModalAction from '../common/ModalAction';
+import { eachDayOfInterval, getDay, format } from 'date-fns';
+import _ from 'lodash';
 
-const DEFAULT_PAGE_SIZE = 10;
+const DEFAULT_PAGE_SIZE = 1;
 
 const FORMAT_DATE = 'YYYY/MM/DD';
 
@@ -24,19 +24,26 @@ export default function TableList({isAdmin}) {
   const [data, setData] = useState([]);
   const [page, setPage] = useState(1);
   const [total, setTotal] = useState(0);
+  const [totalRevenue, setTotalRevenue] = useState(0);
   const [loading, setLoading] = useState(false);
   const [showModal, setShowModal] = useState(false);
   const [record, setRecord] = useState();
+  const [dayActive, setDayActive] = useState('');
   const [params, setParams] = useState({
     app: kintone.app.getId(),
     query: `limit ${page * DEFAULT_PAGE_SIZE} offset 0`,
     fields: ['$id', 'date', 'total_revenue'],
     totalCount: true
   });
+  const [queryNolimit, setQueryNolimit] = useState('');
   const [fields, setFields] = useState({});
 
   const fetchRecords = async (payload) => {
     setLoading(true);
+    let totalRevenue = 0;
+    const payloadNolimit = {...payload};
+    payloadNolimit.query = queryNolimit;
+    const recordsNotPagination = await getRecords(payloadNolimit);
     const records = await getRecords(payload);
     const result = records.records.map((val) => {
       let objItem = {};
@@ -45,6 +52,10 @@ export default function TableList({isAdmin}) {
       }
       return objItem;
     });
+    recordsNotPagination.records.forEach((val) => {
+      totalRevenue += parseInt(val['total_revenue']['value']);
+    });
+    setTotalRevenue(totalRevenue)
     setData(result);
     setTotal(records.totalCount);
     setLoading(false);
@@ -105,10 +116,12 @@ export default function TableList({isAdmin}) {
   ];
 
   const handleChangePage = (val) => {
+    let queryIndex = params.query.indexOf('limit');
+    let newQuery = params.query.substring(0, queryIndex);
     setPage(val);
     setParams({
       ...params,
-      query: `limit ${DEFAULT_PAGE_SIZE} offset ${(val - 1) * DEFAULT_PAGE_SIZE}`
+      query: `${newQuery} limit ${DEFAULT_PAGE_SIZE} offset ${(val - 1) * DEFAULT_PAGE_SIZE}`
     });
   };
 
@@ -148,17 +161,56 @@ export default function TableList({isAdmin}) {
     } else {
       queryString = arrFilter.join(' ');
     }
-
+    setDayActive('');
+    setQueryNolimit(queryString);
     setParams({
       ...params,
-      query: queryString + `limit ${page * DEFAULT_PAGE_SIZE} offset 0`
+      query: queryString
     });
   };
 
+  const getCurrentMonthDays = (daysToFilter) => {
+    const currentDate = new Date();
+    const startDate = new Date(currentDate.getFullYear(), currentDate.getMonth(), 1);
+    const endDate = new Date(currentDate.getFullYear(), currentDate.getMonth() + 1, 0);
+    const allDates = eachDayOfInterval({ start: startDate, end: endDate });
+
+    return _.filter(allDates, (date) => {
+      return parseInt(daysToFilter) === getDay(date);
+    }).map((date) => format(date, 'yyyy/MM/dd'));
+  };
+
+  const getSelectedDay = (value) => {
+    if (value === dayActive) {
+      setDayActive('');
+      setQueryNolimit('');
+      setParams({
+        ...params,
+        query: ''
+      });
+    } else {
+      let queryString = '';
+
+      let arrFilter = [];
+      const daysArr = getCurrentMonthDays(value);
+      queryString = `date`
+      daysArr.forEach((date) => {
+        arrFilter.push(`date like "${date}" `);
+      })
+      queryString = arrFilter.join('or ');
+      setQueryNolimit(queryString);
+      setParams({
+        ...params,
+        query: queryString
+      });
+      setDayActive(value);
+    }
+  }
+  
   return (
     <MainLayout isAdmin={isAdmin}>
       <CardComponent title={'日報一覧'} btnRight={'新規登録'} onClickRight={() => window.location.href = `${window.location.origin}/k/${idApp}/edit` }>
-        <FilterList onFinish={onFinish} fields={fields}/>
+        <FilterList onFinish={onFinish} getSelectedDay={getSelectedDay} dayActive={dayActive} fields={fields} totalRevenue={totalRevenue} />
         <Table dataSource={data} columns={columns} pagination={false} loading={loading}/>
         <Pagination total={total} page={page} onChangePage={handleChangePage} defaultPageSize={DEFAULT_PAGE_SIZE}/>
       </CardComponent>

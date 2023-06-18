@@ -13,3 +13,20 @@
 :global(.ant-form-item-control-input-content) {
     max-width: 250px !important;
 }
+
+.flexCenter {
+    display: flex;
+    align-items: center;
+}
+
+.fsLarge {
+    font-size: 18px;
+    margin-left: 10px;
+    font-weight: bold;
+}
+
+.activeDay {
+    color: #c41d7f;
+    background: #fff0f6;
+    border-color: #ffadd2;
+}
