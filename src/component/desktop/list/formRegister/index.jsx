@@ -1,21 +1,17 @@
 // eslint-disable-next-line no-unused-vars
 import React, {useEffect, useState} from 'react';
 import {Button, Col, DatePicker, Form, Input, InputNumber, Row, Select, Upload} from 'antd';
-import {ArrowLeftOutlined, SaveOutlined} from '@ant-design/icons';
 import dayjs from 'dayjs';
-import {fetchAllRecordsCustomer} from '../../../../utils/common';
+import {fetchAllRecordsCustomer, FORMAT_DATE_TIME, convertTimeDiff} from '../../../../utils/common';
 import {addRecord, updateRecord} from '../../../../api/list';
 import MainLayout from '../../../layout/main';
 import {ID_APP_CUSTOMER_COME, ID_APP_REGISTER, ID_APP_STAFF} from '../../../common/const';
-
 import styles from './styles.module.css';
 import CardComponent from '../../common/card/CardComponent';
 
 const {TextArea} = Input;
 
 const idStaffApp = '6';
-
-const FORMAT_DATE_TIME = 'YYYY/MM/DD';
 
 const idApp = kintone.app.getId();
 
@@ -230,9 +226,18 @@ export default function FormRegister({
         'revenue_staff': {
           'value': payload.revenue_staff
         },
-        'comment': {
-          'value': payload.comment
-        }
+        'purchase_amount': {
+          'value': payload.purchase_amount
+        },
+        'rent': {
+          'value': payload.rent
+        },
+        'variable_cost': {
+          'value': payload.variable_cost
+        },
+        'fixed_cost': {
+          'value': payload.fixed_cost
+        },
       }
     };
 
@@ -294,17 +299,6 @@ export default function FormRegister({
     pdfWindow.document.write('<iframe width=\'100%\' height=\'100%\' src=\'' + encodeURI(file?.url) + '\'></iframe>');
   };
 
-  const convertTimeDiff =  (time1, time2) => {
-    if (time1 && time2) {
-      const dateExp1 = dayjs(`2000-01-01 ${time1}`);
-      let dateExp2 = dayjs(`2000-01-01 ${time2}`);
-      dateExp2 = dateExp1.diff(dateExp2) > 0 ? dayjs(dayjs(dateExp2).add(1, 'day')) : dateExp2;
-      const timeDiff = dateExp2.diff(dateExp1);
-      return timeDiff / 1000;
-    } 
-    return 0;
-  }
-
   const onValuesChange = async (payload, data) => {
     if (payload.date) {
       let date = dayjs(payload.date).format(FORMAT_DATE_TIME);
@@ -312,10 +306,43 @@ export default function FormRegister({
         await fetchAllRecordsByDate(ID_APP_CUSTOMER_COME, date),
         await fetchAllStaffByDate(ID_APP_REGISTER, date)
       ])
-      const total = customerComes.map(val => +val.revenue.value).reduce((a, b) => a + b, 0);
+
+      let totalRevenue = 0;
+      let totalCashSales = 0;
+      let totalCardSales = 0;
+      let totalTransferSales = 0;
+      let totalCashAdvance = 0;
+      let totalCardAdvance = 0;
+      let totalTransferAdvance = 0;
+      let customerComment = '';
+      if (customerComes) {
+        customerComes.forEach(
+          ({
+            cash_sales,
+            card_sales,
+            transfer_sales,
+            card_advance,
+            cash_advance,
+            transfer_advance,
+            revenue,
+            comment,
+            customer
+          }) => {
+            totalRevenue += revenue.value && parseInt(revenue.value);
+            totalCashSales += cash_sales.value && parseInt(cash_sales.value);
+            totalCardSales += card_sales.value && parseInt(card_sales.value);
+            totalTransferSales += transfer_sales.value && parseInt(transfer_sales.value);
+            totalCashAdvance += cash_advance.value && parseInt(cash_advance.value);
+            totalCardAdvance += card_advance.value && parseInt(card_advance.value);
+            totalTransferAdvance += transfer_advance.value && parseInt(transfer_advance.value);
+            customerComment += comment.value && `${customer.value} - ${comment.value}\n`;
+          }
+        );
+      }
+  
       const staffIds = staffs.map(val => val.id_staff.value)
       const infoStaffs = await fetchAllRecordsStaff(staffIds.join(', '))
-      let fee = 0;
+      let staffRevenue = 0;
       if(infoStaffs) {
         const salarys = {};
         infoStaffs.forEach((val) => {
@@ -323,11 +350,18 @@ export default function FormRegister({
             [val.$id.value]: val.salary.value
           })
         })
-        staffs.forEach((val) => fee += salarys[val.id_staff.value] * convertTimeDiff(val.time_in.value, val.time_out.value) / 3600);
+        staffs.forEach((val) => staffRevenue += salarys[val.id_staff.value] * convertTimeDiff(val.time_in.value, val.time_out.value) / 3600);
       }
-
-      form.setFieldValue('revenue_staff', isNaN(fee) ? 0 : +fee.toFixed(0));
-      form.setFieldValue('revenue_staff', isNaN(fee) ? 0 : fee.toFixed(0));
+      const total = parseInt(totalRevenue) + parseInt(totalCashSales) + parseInt(totalCardSales) + parseInt(totalTransferSales) + parseInt(totalCashAdvance) + parseInt(totalCardAdvance) + parseInt(totalTransferAdvance);
+      form.setFieldValue('revenue_staff', isNaN(staffRevenue) ? 0 : +staffRevenue.toFixed(0));
+      form.setFieldValue('total_cash_sales', totalCashSales);
+      form.setFieldValue('total_card_sales', totalCardSales);
+      form.setFieldValue('total_transfer_sales', totalTransferSales);
+      form.setFieldValue('total_cash_advance', totalCashAdvance);
+      form.setFieldValue('total_card_advance', totalCardAdvance);
+      form.setFieldValue('total_transfer_advance', totalTransferAdvance);
+      form.setFieldValue('total_revenue', total);
+      form.setFieldValue('comment', customerComment);
     }
   };
 
@@ -380,6 +414,126 @@ export default function FormRegister({
         formItemProps: {
           label: '人件費',
           name: 'revenue_staff',
+          labelAlign: 'left',
+          rules: [{
+            required: true,
+            message: 'Required'
+          }]
+        },
+        renderInput: () => <InputNumber min={1} disabled addonAfter="円" formatter={(value) => `${value}`.replace(/\B(?=(\d{3})+(?!\d))/g, ',')}/>,
+      },
+      {
+        formItemProps: {
+          label: '仕入高',
+          name: 'purchase_amount',
+          labelAlign: 'left',
+          rules: [{
+            required: true,
+            message: 'Required'
+          }]
+        },
+        renderInput: () => <InputNumber min={1} addonAfter="円" formatter={(value) => `${value}`.replace(/\B(?=(\d{3})+(?!\d))/g, ',')}/>,
+      },
+      {
+        formItemProps: {
+          label: '家賃',
+          name: 'rent',
+          labelAlign: 'left',
+          rules: [{
+            required: true,
+            message: 'Required'
+          }]
+        },
+        renderInput: () => <InputNumber min={1} addonAfter="円" formatter={(value) => `${value}`.replace(/\B(?=(\d{3})+(?!\d))/g, ',')}/>,
+      },
+      {
+        formItemProps: {
+          label: '変動費',
+          name: 'variable_cost',
+          labelAlign: 'left',
+          rules: [{
+            required: true,
+            message: 'Required'
+          }]
+        },
+        renderInput: () => <InputNumber min={1} addonAfter="円" formatter={(value) => `${value}`.replace(/\B(?=(\d{3})+(?!\d))/g, ',')}/>,
+      },
+      {
+        formItemProps: {
+          label: '固定費',
+          name: 'fixed_cost',
+          labelAlign: 'left',
+          rules: [{
+            required: true,
+            message: 'Required'
+          }]
+        },
+        renderInput: () => <InputNumber min={1} addonAfter="円" formatter={(value) => `${value}`.replace(/\B(?=(\d{3})+(?!\d))/g, ',')}/>,
+      },
+      {
+        formItemProps: {
+          label: '現金売上',
+          name: 'total_cash_sales',
+          labelAlign: 'left',
+          rules: [{
+            required: true,
+            message: 'Required'
+          }]
+        },
+        renderInput: () => <InputNumber min={1} disabled addonAfter="円" formatter={(value) => `${value}`.replace(/\B(?=(\d{3})+(?!\d))/g, ',')}/>,
+      },
+      {
+        formItemProps: {
+          label: 'クレカ売上',
+          name: 'total_card_sales',
+          labelAlign: 'left',
+          rules: [{
+            required: true,
+            message: 'Required'
+          }]
+        },
+        renderInput: () => <InputNumber min={1} disabled addonAfter="円" formatter={(value) => `${value}`.replace(/\B(?=(\d{3})+(?!\d))/g, ',')}/>,
+      },
+      {
+        formItemProps: {
+          label: '振込売上',
+          name: 'total_transfer_sales',
+          labelAlign: 'left',
+          rules: [{
+            required: true,
+            message: 'Required'
+          }]
+        },
+        renderInput: () => <InputNumber min={1} disabled addonAfter="円" formatter={(value) => `${value}`.replace(/\B(?=(\d{3})+(?!\d))/g, ',')}/>,
+      },
+      {
+        formItemProps: {
+          label: '現金立替',
+          name: 'total_cash_advance',
+          labelAlign: 'left',
+          rules: [{
+            required: true,
+            message: 'Required'
+          }]
+        },
+        renderInput: () => <InputNumber min={1} disabled addonAfter="円" formatter={(value) => `${value}`.replace(/\B(?=(\d{3})+(?!\d))/g, ',')}/>,
+      },
+      {
+        formItemProps: {
+          label: 'クレカ立替',
+          name: 'total_card_advance',
+          labelAlign: 'left',
+          rules: [{
+            required: true,
+            message: 'Required'
+          }]
+        },
+        renderInput: () => <InputNumber min={1} disabled addonAfter="円" formatter={(value) => `${value}`.replace(/\B(?=(\d{3})+(?!\d))/g, ',')}/>,
+      },
+      {
+        formItemProps: {
+          label: '振込立替',
+          name: 'total_transfer_advance',
           labelAlign: 'left',
           rules: [{
             required: true,
@@ -479,6 +633,10 @@ export default function FormRegister({
         expenses: data?.expenses.value,
         comment: data?.comment.value,
         revenue_staff: data?.revenue_staff?.value,
+        purchase_amount: data?.purchase_amount?.value,
+        rent: data?.rent?.value,
+        variable_cost: data?.variable_cost?.value,
+        fixed_cost: data?.fixed_cost?.value,
         user_charge: data.user_charge.value && JSON.stringify({
           name: data.user_charge.value,
           id: data.id_user_charge.value

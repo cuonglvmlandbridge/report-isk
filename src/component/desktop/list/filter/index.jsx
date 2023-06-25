@@ -1,11 +1,12 @@
 // eslint-disable-next-line no-unused-vars
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import {Form, Row, Col, Button, Select, DatePicker, Tabs,  Space, Tag} from 'antd';
-import {formatMoney} from '../../../../utils/common';
+import { formatMoney, FORMAT_DATE_TIME, getFirstAndLastDateOfCurrentMonth } from '../../../../utils/common';
 import styles from './styles.module.css';
+import dayjs from 'dayjs';
 
 export default function FilterList({onFinish, fields, totalRevenue, dayActive, getSelectedDay}) {
-
+  const { RangePicker } = DatePicker;
   const [form] = Form.useForm();
 
   const [tabActive, setTabActive] = useState('1');
@@ -57,6 +58,12 @@ export default function FilterList({onFinish, fields, totalRevenue, dayActive, g
     }
   ];
 
+  useEffect(() => {
+    const { firstDate, lastDate } = getFirstAndLastDateOfCurrentMonth();
+    const defaultRange = [dayjs(firstDate, FORMAT_DATE_TIME), dayjs(lastDate, FORMAT_DATE_TIME)];
+    form.setFieldsValue({ date: defaultRange });
+  }, []);
+
   const onChange = (key) => {
     form.resetFields()
     setTabActive(key)
@@ -85,7 +92,7 @@ export default function FilterList({onFinish, fields, totalRevenue, dayActive, g
           </Button>
         </Col>
         <Col className={`gutter-row ${styles.flexCenter}`} span={6}>
-          検索: <span className={styles.fsLarge}>{totalRevenue > 0 ? formatMoney(totalRevenue) : `0円`}</span>
+          総売上: <span className={styles.fsLarge}>{totalRevenue > 0 ? formatMoney(totalRevenue) : `0円`}</span>
         </Col>
       </Row>
     );
@@ -99,7 +106,7 @@ export default function FilterList({onFinish, fields, totalRevenue, dayActive, g
           name: 'date',
           labelAlign: 'left',
         },
-        renderInput: () => <DatePicker allowClear placeholder={''} />,
+        renderInput: () => <RangePicker format={FORMAT_DATE_TIME} allowClear />,
       },
     ];
     const generalInformationInputMonth = [
@@ -130,7 +137,7 @@ export default function FilterList({onFinish, fields, totalRevenue, dayActive, g
     ];
     return (
       <div className={styles.formFilter}>
-        <Form form={form}  autoComplete="off" onFinish={onSubmitForm}>
+        <Form form={form} autoComplete="off" onFinish={onSubmitForm}>
           {renderModalContentDetail(tabActive === '1' ? generalInformationInput : tabActive === '2' ? generalInformationInputMonth : generalInformationInputYear)}
         </Form>
       </div>

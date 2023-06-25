@@ -1,27 +1,139 @@
 .item span:first-child {
-    min-width: 150px;
-    margin-right: 10px;
-    display: inline-block;
+  min-width: 150px;
+  margin-right: 10px;
+  display: inline-block;
 }
-
 .item {
-    margin-bottom: 15px;
+  margin-bottom: 15px;
 }
-
 .detail {
-    margin-left: 10px;
-    margin-top: 30px;
+  margin-left: 10px;
+  margin-top: 30px;
+  display: flex;
+  flex-direction: column;
+  width: 35%;
 }
-
 .item img {
-    cursor: pointer;
+  cursor: pointer;
 }
-
 .item span {
-    word-break: break-all;
+  word-break: break-all;
 }
-
 .btnCopy {
-    margin-top: 30px;
-    margin-left: 20px;
+  margin-top: 30px;
+  margin-left: 20px;
+}
+p {
+  margin: 0;
+  padding: 0;
+}
+.parentItem {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 20px;
+}
+.itemLarge .parentItem, .itemMedium .parentItem {
+  border-bottom: 1px solid black;
+}
+.itemMedium {
+  margin-left: 20px;
+}
+.itemSmall{
+  margin-left: 30px;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 20px;
+}
+.itemMedium .itemSmall:last-child {
+  margin-bottom: 30px;
+}
+.itemLargest p{
+  font-size: 32px;
+}
+.itemLarge p {
+  font-size: 24px;
+}
+.itemMedium p {
+  font-size: 20px;
+}
+.itemSmall p {
+  font-size: 18px;
+}
+.parentItem img {
+  height: 150px;
+  width: 150px;
+  border: 1px dashed #D5D5D5;
+  margin-top: 20px;
+}
+.mt10 {
+  margin-top: 10px;
+}
+.mt20 {
+  margin-top: 20px;
+}
+.mt30 {
+  margin-top: 30px;
+}
+.mb20 {
+  margin-bottom: 20px;
+}
+.fs18 {
+  font-size: 18px;
+}
+.btDashed {
+  border-bottom: 1px dashed #000;
+}
+.pb20 {
+  padding-bottom: 20px;
+}
+.ml0 {
+  margin-left: 0px;
+}
+.w30 {
+  width: 30%;
+}
+.w40 {
+  width: 40%;
+}
+.w70 {
+  width: 70%;
+}
+.ml20 {
+  margin-left: 20px;
+}
+.arrowUp::after {
+  content: "";
+  display: block;
+  position: absolute;
+  top: 13px;
+  left: 0;
+  width: 0px;
+  height: 0px;
+  border-left: 10px solid transparent;
+  border-right: 10px solid transparent;
+  border-bottom: 10px solid green;
+}
+.arrowUp, .arrowDown {
+  position: relative;
+  padding-left: 30px;
+}
+.arrowDown::after {
+  content: "";
+  display: block;
+  position: absolute;
+  top: 13px;
+  left: 0;
+  width: 0px;
+  height: 0px;
+  border-left: 10px solid transparent;
+  border-right: 10px solid transparent;
+  border-top: 10px solid #f00;
+}
+.ml40{
+  margin-left: 40px;
+}
+.ml20 {
+  margin-left: 20px;
 }

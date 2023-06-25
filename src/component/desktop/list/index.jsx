@@ -8,19 +8,16 @@ import dayjs from 'dayjs';
 import styles from './styles.module.css';
 import MainLayout from '../../layout/main';
 import CardComponent from '../common/card/CardComponent';
-import {formatMoney} from '../../../utils/common';
+import {formatMoney, getDatesInRange, getFirstAndLastDateOfCurrentMonth, FORMAT_DATE_TIME} from '../../../utils/common';
 import ModalAction from '../common/ModalAction';
 import { eachDayOfInterval, getDay, format } from 'date-fns';
 import _ from 'lodash';
 
 const DEFAULT_PAGE_SIZE = 1;
 
-const FORMAT_DATE = 'YYYY/MM/DD';
-
 const idApp = kintone.app.getId();
 
 export default function TableList({isAdmin}) {
-
   const [data, setData] = useState([]);
   const [page, setPage] = useState(1);
   const [total, setTotal] = useState(0);
@@ -31,8 +28,8 @@ export default function TableList({isAdmin}) {
   const [dayActive, setDayActive] = useState('');
   const [params, setParams] = useState({
     app: kintone.app.getId(),
-    query: `limit ${page * DEFAULT_PAGE_SIZE} offset 0`,
-    fields: ['$id', 'date', 'total_revenue'],
+    query: ``,
+    fields: ['$id', 'date', 'total_revenue', 'user_update', 'Created_by', 'Updated_datetime'],
     totalCount: true
   });
   const [queryNolimit, setQueryNolimit] = useState('');
@@ -55,6 +52,7 @@ export default function TableList({isAdmin}) {
     recordsNotPagination.records.forEach((val) => {
       totalRevenue += parseInt(val['total_revenue']['value']);
     });
+
     setTotalRevenue(totalRevenue)
     setData(result);
     setTotal(records.totalCount);
@@ -72,26 +70,52 @@ export default function TableList({isAdmin}) {
     }, function(error) {
       // error
     });
+
+    const { firstDate, lastDate } = getFirstAndLastDateOfCurrentMonth();
+    const groupRangeDate = makeGroupDateInQuery(firstDate, lastDate);
+
+    setParams({
+      ...params,
+      query: `date in ${groupRangeDate} limit ${page * DEFAULT_PAGE_SIZE} offset 0`
+    });
   }, []);
 
   const columns = [
     {
       title: '日付',
       dataIndex: 'date',
-      key: '日付',
+      key: 'date',
+      width: 100,
       align: 'center',
     },
     {
       title: '総売上',
       dataIndex: 'total_revenue',
-      key: '総売上',
+      key: 'total_revenue',
       align: 'center',
+      width: 100,
       render: (item) => formatMoney(item)
+    },
+    {
+      title: '更新者',
+      key: 'user_update',
+      width: 100,
+      align: 'center',
+      render: (item) => {return item.user_update ? item.user_update : item.Created_by.name}
+    },
+    {
+      title: '更新日時',
+      dataIndex: 'Updated_datetime',
+      key: 'Updated_datetime',
+      width: 100,
+      align: 'center',
+      render: (item) => dayjs(item).format(FORMAT_DATE_TIME)
     },
     {
       title: '',
       width: 220,
       key: 'action',
+      fixed: 'right',
       render: (record) => (
         <div className={styles.btnGroup}>
           <div className={styles.btnTop}>
@@ -141,16 +165,32 @@ export default function TableList({isAdmin}) {
     });
   }
 
+  const makeGroupDateInQuery = (firstDate, lastDate) => {
+    const datesInRange = getDatesInRange(firstDate, lastDate);
+    let groupRangeDate = '(';
+    datesInRange.forEach((date, index) => {
+      if (index === datesInRange.length - 1) {
+        groupRangeDate += `"${date}")`
+      } else {
+        groupRangeDate += `"${date}",`
+      }
+    })
+
+    return groupRangeDate;
+  }
+
   const onFinish = (payload) => {
     let queryString = '';
-
     let arrFilter = [];
 
     if (payload.date) {
-      arrFilter.push(`date like "${dayjs(payload.date).format(FORMAT_DATE)}" `);
+      const firstDate = dayjs(payload.date[0]).format(FORMAT_DATE_TIME);
+      const lastDate = dayjs(payload.date[1]).format(FORMAT_DATE_TIME)
+      const groupRangeDate = makeGroupDateInQuery(firstDate, lastDate);
+      arrFilter.push(`date in ${groupRangeDate}`);
     }
     if (payload.month) {
-      arrFilter.push(`month = "${+payload.month}" `);
+      arrFilter.push(`month = "${+dayjs(payload.month).format('MM')}" and year = "${dayjs(payload.month).format('YYYY')}" `);
     }
     if (payload.year) {
       arrFilter.push(`year = "${dayjs(payload.year).format('YYYY')}" `);
@@ -161,11 +201,12 @@ export default function TableList({isAdmin}) {
     } else {
       queryString = arrFilter.join(' ');
     }
+
     setDayActive('');
     setQueryNolimit(queryString);
     setParams({
       ...params,
-      query: queryString
+      query: queryString + `limit ${page * DEFAULT_PAGE_SIZE} offset 0`
     });
   };
 
