@@ -20,4 +20,6 @@ export const ID_APP_SETTING = '37'
 
 export const ID_APP_RANK = '41'
 
+export const ID_APP_CONFIG_SETTING = '45'
+
 export const URL_WEB = window.location.origin

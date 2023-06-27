@@ -48,22 +48,46 @@ const fetchFileKey = (fileKey, setFileList) => {
   xhr.send();
 };
 
-function fetchAllRecordsByDate(appId, time_start, opt_offset, opt_limit, opt_records) {
-  let offset = opt_offset || 0;
-  let limit = opt_limit || 100;
-  let allRecords = opt_records || [];
+async function fetchAllRecordsByDate(appId, time_start) {
+  const startDate = new Date(time_start);
+  let nextDate = new Date();
+  nextDate.setDate(startDate.getDate() + 1);
+  const nextDateFormat = nextDate.toISOString().slice(0, 10);
   let params = {
     app: appId,
-    query: `time_start like "${time_start}" limit ${limit} offset ${offset}`,
+    query: `time_start like "${time_start}"`,
   };
-  return kintone.api('/k/v1/records', 'GET', params).then(function(resp) {
-    allRecords = allRecords.concat(resp.records);
-    if (resp.records.length === limit) {
-      return fetchAllRecordsByDate(appId, offset + limit, limit, allRecords);
+  let paramsNextDate = {
+    app: appId,
+    query: `time_start like "${nextDateFormat}"`,
+  };
+  let customeStartDate = await kintone.api("/k/v1/records", "GET", params);
+  let customeNextDate = await kintone.api(
+    "/k/v1/records",
+    "GET",
+    paramsNextDate
+  );
+  const filterStartDateCustomer = customeStartDate.records.filter(
+    ({ time_start: time_start_customer }) => {
+      return (
+        new Date(time_start_customer.value) >= new Date(`${time_start} 06:00`)
+      );
     }
-    return allRecords;
-  });
+  );
+  const filterNextDateCustomer = customeNextDate.records.filter(
+    ({ time_start: time_start_customer }) => {
+      return (
+        new Date(time_start_customer.value) <=
+        new Date(`${nextDateFormat} 06:00`)
+      );
+    }
+  );
+  return [
+    ...filterStartDateCustomer,
+    ...filterNextDateCustomer,
+  ];
 }
+
 
 function fetchAllStaffByDate(appId, date, opt_offset, opt_limit, opt_records) {
   let offset = opt_offset || 0;
@@ -220,9 +244,6 @@ export default function FormRegister({
         'total_revenue': {
           'value': payload.total_revenue
         },
-        'expenses': {
-          'value': payload.expenses
-        },
         'revenue_staff': {
           'value': payload.revenue_staff
         },
@@ -352,7 +373,7 @@ export default function FormRegister({
         })
         staffs.forEach((val) => staffRevenue += salarys[val.id_staff.value] * convertTimeDiff(val.time_in.value, val.time_out.value) / 3600);
       }
-      const total = parseInt(totalRevenue) + parseInt(totalCashSales) + parseInt(totalCardSales) + parseInt(totalTransferSales) + parseInt(totalCashAdvance) + parseInt(totalCardAdvance) + parseInt(totalTransferAdvance);
+      const total = parseInt(totalCashSales) + parseInt(totalCardSales) + parseInt(totalTransferSales) + parseInt(totalCashAdvance) + parseInt(totalCardAdvance) + parseInt(totalTransferAdvance);
       form.setFieldValue('revenue_staff', isNaN(staffRevenue) ? 0 : +staffRevenue.toFixed(0));
       form.setFieldValue('total_cash_sales', totalCashSales);
       form.setFieldValue('total_card_sales', totalCardSales);
@@ -397,18 +418,6 @@ export default function FormRegister({
           }]
         },
         renderInput: () => <InputNumber disabled min={1} addonAfter="円" formatter={(value) => `${value}`.replace(/\B(?=(\d{3})+(?!\d))/g, ',')}/>,
-      },
-      {
-        formItemProps: {
-          label: '経費',
-          name: 'expenses',
-          labelAlign: 'left',
-          rules: [{
-            required: true,
-            message: 'Required'
-          }]
-        },
-        renderInput: () => <InputNumber min={1} addonAfter="円" formatter={(value) => `${value}`.replace(/\B(?=(\d{3})+(?!\d))/g, ',')}/>,
       },
       {
         formItemProps: {
@@ -475,10 +484,6 @@ export default function FormRegister({
           label: '現金売上',
           name: 'total_cash_sales',
           labelAlign: 'left',
-          rules: [{
-            required: true,
-            message: 'Required'
-          }]
         },
         renderInput: () => <InputNumber min={1} disabled addonAfter="円" formatter={(value) => `${value}`.replace(/\B(?=(\d{3})+(?!\d))/g, ',')}/>,
       },
@@ -487,10 +492,6 @@ export default function FormRegister({
           label: 'クレカ売上',
           name: 'total_card_sales',
           labelAlign: 'left',
-          rules: [{
-            required: true,
-            message: 'Required'
-          }]
         },
         renderInput: () => <InputNumber min={1} disabled addonAfter="円" formatter={(value) => `${value}`.replace(/\B(?=(\d{3})+(?!\d))/g, ',')}/>,
       },
@@ -499,10 +500,6 @@ export default function FormRegister({
           label: '振込売上',
           name: 'total_transfer_sales',
           labelAlign: 'left',
-          rules: [{
-            required: true,
-            message: 'Required'
-          }]
         },
         renderInput: () => <InputNumber min={1} disabled addonAfter="円" formatter={(value) => `${value}`.replace(/\B(?=(\d{3})+(?!\d))/g, ',')}/>,
       },
@@ -511,10 +508,6 @@ export default function FormRegister({
           label: '現金立替',
           name: 'total_cash_advance',
           labelAlign: 'left',
-          rules: [{
-            required: true,
-            message: 'Required'
-          }]
         },
         renderInput: () => <InputNumber min={1} disabled addonAfter="円" formatter={(value) => `${value}`.replace(/\B(?=(\d{3})+(?!\d))/g, ',')}/>,
       },
@@ -523,10 +516,6 @@ export default function FormRegister({
           label: 'クレカ立替',
           name: 'total_card_advance',
           labelAlign: 'left',
-          rules: [{
-            required: true,
-            message: 'Required'
-          }]
         },
         renderInput: () => <InputNumber min={1} disabled addonAfter="円" formatter={(value) => `${value}`.replace(/\B(?=(\d{3})+(?!\d))/g, ',')}/>,
       },
@@ -535,10 +524,6 @@ export default function FormRegister({
           label: '振込立替',
           name: 'total_transfer_advance',
           labelAlign: 'left',
-          rules: [{
-            required: true,
-            message: 'Required'
-          }]
         },
         renderInput: () => <InputNumber min={1} disabled addonAfter="円" formatter={(value) => `${value}`.replace(/\B(?=(\d{3})+(?!\d))/g, ',')}/>,
       },
@@ -630,7 +615,6 @@ export default function FormRegister({
       form.setFieldsValue({
         date: data?.date.value && dayjs(data?.date?.value),
         total_revenue: data?.total_revenue?.value,
-        expenses: data?.expenses.value,
         comment: data?.comment.value,
         revenue_staff: data?.revenue_staff?.value,
         purchase_amount: data?.purchase_amount?.value,

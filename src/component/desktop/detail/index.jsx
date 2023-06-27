@@ -1,15 +1,21 @@
 // eslint-disable-next-line no-unused-vars
 import React, { useEffect, useRef, useState } from "react";
 import MainLayout from "../../layout/main";
+import dayjs from "dayjs";
 import styles from "./styles.module.css";
 import { Button, message } from "antd";
 import { ArrowLeftOutlined } from "@ant-design/icons";
-import { formatMoney, convertTimeDiff } from "../../../utils/common";
+import {
+  formatMoney,
+  convertTimeDiff,
+  FORMAT_DATE_TIME,
+} from "../../../utils/common";
 import CardComponent from "../common/card/CardComponent";
 import {
   ID_APP_CUSTOMER_COME,
   ID_APP_REGISTER,
   ID_APP_STAFF,
+  ID_APP_CONFIG_SETTING,
 } from "../../common/const";
 
 const idApp = kintone.app.getId();
@@ -58,6 +64,15 @@ export default function Detail({ record, isAdmin }) {
   const [flrCost, setFlrCost] = useState(0);
   const [profit, setProfit] = useState(0);
   const [arrayStaff, setArrayStaff] = useState([]);
+  const [settingConfig, setSettingConfig] = useState({
+    fixed_cost_estimated_by_day: 0,
+    rent_per_day_by_day: 0,
+    sales_estimated_percent_by_day: 0,
+    variable_cost_percent_by_day: 0,
+    staff_revenue_percent_by_day: 0,
+    flr_percent_by_day: 0,
+    profit_estimated_by_day: 0,
+  });
 
   const refCopy = useRef();
 
@@ -180,10 +195,31 @@ export default function Detail({ record, isAdmin }) {
       const promises = [
         fetchAllRecordsByDate(ID_APP_CUSTOMER_COME, record.date.value),
         fetchAllStaffByDate(ID_APP_REGISTER, record.date.value),
+        fetchAllRecordConfigSetting(),
       ];
 
       try {
-        const [customersCome, staffs] = await Promise.all(promises);
+        const [customersCome, staffs, configSetting] = await Promise.all(
+          promises
+        );
+
+        if (configSetting.records.length > 0) {
+          const firstConfigSetting = configSetting.records[0];
+          setSettingConfig({
+            fixed_cost_estimated_by_day:
+              firstConfigSetting.fixed_cost_estimated_by_day.value,
+            rent_per_day_by_day: firstConfigSetting.rent_per_day_by_day.value,
+            sales_estimated_percent_by_day:
+              firstConfigSetting.sales_estimated_percent_by_day.value,
+            variable_cost_percent_by_day:
+              firstConfigSetting.variable_cost_percent_by_day.value,
+            staff_revenue_percent_by_day:
+              firstConfigSetting.staff_revenue_percent_by_day.value,
+            flr_percent_by_day: firstConfigSetting.flr_percent_by_day.value,
+            profit_estimated_by_day:
+              firstConfigSetting?.profit_estimated_by_day?.value,
+          });
+        }
         let totalRevenue = 0;
         let totalCashSales = 0;
         let totalCardSales = 0;
@@ -293,27 +329,44 @@ export default function Detail({ record, isAdmin }) {
     return revenueStaff;
   }
 
-  function fetchAllRecordsByDate(
-    appId,
-    time_start,
-    opt_offset,
-    opt_limit,
-    opt_records
-  ) {
-    let offset = opt_offset || 0;
-    let limit = opt_limit || 100;
-    let allRecords = opt_records || [];
+  async function fetchAllRecordsByDate(appId, time_start) {
+    const startDate = new Date(time_start);
+    let nextDate = new Date();
+    nextDate.setDate(startDate.getDate() + 1);
+    const nextDateFormat = nextDate.toISOString().slice(0, 10);
     let params = {
       app: appId,
-      query: `time_start like "${time_start}" limit ${limit} offset ${offset}`,
+      query: `time_start like "${time_start}"`,
     };
-    return kintone.api("/k/v1/records", "GET", params).then(function (resp) {
-      allRecords = allRecords.concat(resp.records);
-      if (resp.records.length === limit) {
-        return fetchAllRecordsByDate(appId, offset + limit, limit, allRecords);
+    let paramsNextDate = {
+      app: appId,
+      query: `time_start like "${nextDateFormat}"`,
+    };
+    let customeStartDate = await kintone.api("/k/v1/records", "GET", params);
+    let customeNextDate = await kintone.api(
+      "/k/v1/records",
+      "GET",
+      paramsNextDate
+    );
+    const filterStartDateCustomer = customeStartDate.records.filter(
+      ({ time_start: time_start_customer }) => {
+        return (
+          new Date(time_start_customer.value) >= new Date(`${time_start} 06:00`)
+        );
       }
-      return allRecords;
-    });
+    );
+    const filterNextDateCustomer = customeNextDate.records.filter(
+      ({ time_start: time_start_customer }) => {
+        return (
+          new Date(time_start_customer.value) <=
+          new Date(`${nextDateFormat} 06:00`)
+        );
+      }
+    );
+    return [
+      ...filterStartDateCustomer,
+      ...filterNextDateCustomer,
+    ];
   }
 
   function fetchAllStaffByDate(
@@ -364,6 +417,13 @@ export default function Detail({ record, isAdmin }) {
         return allRecords;
       })
     );
+  }
+
+  function fetchAllRecordConfigSetting() {
+    const params = { app: ID_APP_CONFIG_SETTING };
+    return kintone.api("/k/v1/records", "GET", params).then(function (resp) {
+      return resp;
+    });
   }
 
   const renderChildTotal = (field) => {
@@ -438,7 +498,14 @@ export default function Detail({ record, isAdmin }) {
                   <span className={styles.ml20}>
                     {formatMoney(revenueStaff)}
                   </span>
-                  <span className={`${styles.arrowDown} ${styles.ml20}`}>
+                  <span
+                    className={`${
+                      (revenueStaff / totalRevenue) * 100 >
+                      settingConfig?.staff_revenue_percent_by_day
+                        ? styles.arrowDown
+                        : styles.arrowUp
+                    } ${styles.ml20}`}
+                  >
                     {`${((revenueStaff / totalRevenue) * 100).toFixed(1)}%`}
                   </span>
                 </p>
@@ -470,7 +537,9 @@ export default function Detail({ record, isAdmin }) {
                   <span>
                     （{`${((revenueStaff / totalRevenue) * 100).toFixed(1)}%`}）
                   </span>
-                  <span className={styles.ml20}>目標30%以下</span>
+                  <span className={styles.ml20}>
+                    目標{settingConfig?.staff_revenue_percent_by_day}%以下
+                  </span>
                 </p>
               </div>
               <div className={`${styles.parentItem}`}>
@@ -479,7 +548,9 @@ export default function Detail({ record, isAdmin }) {
                   {formatMoney(record.purchase_amount.value)}
                 </p>
                 <p className={styles.w40}>
-                  <span>（売上×概算20%）</span>
+                  <span>
+                    （売上×概算{settingConfig.sales_estimated_percent_by_day}%）
+                  </span>
                 </p>
               </div>
               <div
@@ -488,7 +559,9 @@ export default function Detail({ record, isAdmin }) {
                 <p className={styles.w30}>家賃</p>
                 <p className={styles.w30}>{formatMoney(record.rent.value)}</p>
                 <p className={styles.w40}>
-                  <span>（概算1日30.000円）</span>
+                  <span>
+                    （概算1日{formatMoney(settingConfig?.rent_per_day_by_day)}）
+                  </span>
                 </p>
               </div>
               <div className={styles.parentItem}>
@@ -498,7 +571,9 @@ export default function Detail({ record, isAdmin }) {
                   <span>
                     （{`${((flrCost / totalRevenue) * 100).toFixed(1)}%`}）
                   </span>
-                  <span className={styles.ml20}>目標30%以上</span>
+                  <span className={styles.ml20}>
+                    目標{settingConfig?.flr_percent_by_day}%以上
+                  </span>
                 </p>
               </div>
               <div className={styles.parentItem}>
@@ -507,7 +582,9 @@ export default function Detail({ record, isAdmin }) {
                   {formatMoney(record.variable_cost.value)}
                 </p>
                 <p className={styles.w40}>
-                  <span>（売上×概算10%）</span>
+                  <span>
+                    （売上×概算{settingConfig?.variable_cost_percent_by_day}%）
+                  </span>
                 </p>
               </div>
               <div
@@ -518,7 +595,10 @@ export default function Detail({ record, isAdmin }) {
                   {formatMoney(record.fixed_cost.value)}
                 </p>
                 <p className={styles.w40}>
-                  <span>（概算1日30.000円）</span>
+                  <span>
+                    （概算1日
+                    {formatMoney(settingConfig?.fixed_cost_estimated_by_day)}）
+                  </span>
                 </p>
               </div>
             </div>
@@ -526,11 +606,19 @@ export default function Detail({ record, isAdmin }) {
             <div className={`${styles.itemSmall} ${styles.ml0}`}>
               <p className={styles.w30}>利益</p>
               <p className={styles.w30}>
-                <span className={`${styles.arrowDown}`}>
+                <span
+                  className={`${
+                    profit < settingConfig?.profit_estimated_by_day
+                      ? styles.arrowDown
+                      : styles.arrowUp
+                  }`}
+                >
                   {formatMoney(profit)}
                 </span>
               </p>
-              <p className={styles.w40}>目標1日50.000円</p>
+              <p className={styles.w40}>
+                目標1日{formatMoney(settingConfig?.profit_estimated_by_day)}
+              </p>
             </div>
 
             {/* comment section */}
