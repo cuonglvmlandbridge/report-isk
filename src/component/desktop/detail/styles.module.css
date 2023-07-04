@@ -11,7 +11,7 @@
   margin-top: 30px;
   display: flex;
   flex-direction: column;
-  width: 35%;
+  width: 36%;
 }
 .item img {
   cursor: pointer;
@@ -136,4 +136,8 @@ p {
 }
 .ml20 {
   margin-left: 20px;
+}
+.comment {
+  white-space: pre-line;
+  line-height: 25px;
 }

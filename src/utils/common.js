@@ -17,6 +17,7 @@ export function fetchAllRecordsCustomer(appId, opt_offset, opt_limit, opt_record
 }
 
 export function formatMoney(value) {
+  if (value === 0) return '0円';
   if (!value) return '';
   const format = value.toString().replace(/\B(?=(\d{3})+(?!\d))/g, ',');
   return `${ format }円`;
@@ -65,6 +66,20 @@ export function getDatesInRange(startDate, endDate) {
   return dates;
 }
 
+export function getMonthRange(dateString) {
+  var dateParts = dateString.split('/');
+  var year = parseInt(dateParts[0]);
+  var month = parseInt(dateParts[1]);
+
+  var startDate = new Date(year, month - 1, 1);
+  var endDate = new Date(year, month, 0);
+
+  return {
+    startDate: dayjs(startDate).format(FORMAT_DATE_TIME),
+    endDate: dayjs(endDate).format(FORMAT_DATE_TIME)
+  };
+}
+
 
 export const FORMAT_DATE_TIME = 'YYYY/MM/DD';
 
@@ -77,6 +92,15 @@ export function convertTimeDiff(time1, time2) {
     return timeDiff / 1000;
   } 
   return 0;
+}
+
+export function sumPropertyValues(arr, property) {
+  return arr.reduce((sum, obj) => {
+    if (obj.hasOwnProperty(property) && obj[property].value) {
+      return sum + parseInt(obj[property].value);
+    }
+    return sum;
+  }, 0);
 }
 
 

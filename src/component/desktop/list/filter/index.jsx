@@ -1,5 +1,5 @@
 // eslint-disable-next-line no-unused-vars
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import {Form, Row, Col, Button, Select, DatePicker, Tabs,  Space, Tag} from 'antd';
 import { formatMoney, FORMAT_DATE_TIME, getFirstAndLastDateOfCurrentMonth } from '../../../../utils/common';
 import styles from './styles.module.css';
@@ -8,6 +8,7 @@ import dayjs from 'dayjs';
 export default function FilterList({onFinish, fields, totalRevenue, dayActive, getSelectedDay}) {
   const { RangePicker } = DatePicker;
   const [form] = Form.useForm();
+  const buttonRef = useRef(null);
 
   const [tabActive, setTabActive] = useState('1');
 
@@ -65,8 +66,16 @@ export default function FilterList({onFinish, fields, totalRevenue, dayActive, g
   }, []);
 
   const onChange = (key) => {
-    form.resetFields()
     setTabActive(key)
+    const { firstDate, lastDate } = getFirstAndLastDateOfCurrentMonth();
+    if (key === 1) {
+      const defaultRange = [dayjs(firstDate, FORMAT_DATE_TIME), dayjs(lastDate, FORMAT_DATE_TIME)];
+      form.setFieldsValue({ date: defaultRange });
+    } else if (key == 2) {
+      form.setFieldsValue({ month: dayjs(firstDate)});
+    } else if (key == 3) {
+      form.setFieldsValue({ year: dayjs(firstDate)});
+    }
   };
 
   const renderModalContentDetail = (data) => {
@@ -80,18 +89,18 @@ export default function FilterList({onFinish, fields, totalRevenue, dayActive, g
             <Space size={20}>
               {
                 days.map(({label, value}) => {
-                  return <Button key={value} className={value === dayActive && styles.activeDay} onClick={() => getSelectedDay(value)}>{label}</Button>
+                  return <Button key={value} className={`${styles.btnDay} ${value === dayActive && styles.activeDay}`} onClick={() => getSelectedDay(value)}>{label}</Button>
                 })
               }
             </Space>  
           </Col>
         ))}
-        <Col className="gutter-row" span={6}>
-          <Button htmlType={'submit'} type={'primary'}>
+        <Col className="gutter-row" span={3}>
+          <Button ref={buttonRef} htmlType={'submit'} type={'primary'}>
             検索
           </Button>
         </Col>
-        <Col className={`gutter-row ${styles.flexCenter}`} span={6}>
+        <Col className={`gutter-row ${styles.flexCenter}`} span={9}>
           総売上: <span className={styles.fsLarge}>{totalRevenue > 0 ? formatMoney(totalRevenue) : `0円`}</span>
         </Col>
       </Row>
@@ -116,13 +125,7 @@ export default function FilterList({onFinish, fields, totalRevenue, dayActive, g
           name: 'month',
           labelAlign: 'left',
         },
-        renderInput: () => <Select
-          style={{width: 250}}
-          options={Array.from({ length: 12 }, (v, i) => ({
-            label: `${i + 1}月`,
-            value: i + 1
-          }))}
-        />
+        renderInput: () => <DatePicker picker="month" format='YYYY/MM' allowClear placeholder={''} />,
       },
     ];
     const generalInformationInputYear = [
@@ -132,7 +135,7 @@ export default function FilterList({onFinish, fields, totalRevenue, dayActive, g
           name: 'year',
           labelAlign: 'left',
         },
-        renderInput: () => <DatePicker picker="year" allowClear placeholder={''} />,
+        renderInput: () => <DatePicker picker="year" format='YYYY' allowClear placeholder={''} />,
       },
     ];
     return (

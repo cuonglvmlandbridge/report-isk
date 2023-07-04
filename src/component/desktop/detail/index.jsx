@@ -9,6 +9,9 @@ import {
   formatMoney,
   convertTimeDiff,
   FORMAT_DATE_TIME,
+  getDatesInRange,
+  getMonthRange,
+  sumPropertyValues,
 } from "../../../utils/common";
 import CardComponent from "../common/card/CardComponent";
 import {
@@ -50,19 +53,30 @@ export default function Detail({ record, isAdmin }) {
   const [imgBill, setImgBill] = useState();
   const [imgReceipt, setImgReceipt] = useState();
   const [customersCome, setCustomersCome] = useState([]);
-  const [totalCardSales, setTotalCardSales] = useState(0);
-  const [totalCashSales, setTotalCashSales] = useState(0);
-  const [totalTransferSales, setTotalTransferSales] = useState(0);
-  const [totalCashAdvance, setTotalCashAdvance] = useState(0);
-  const [totalCardAdvance, setTotalCardAdvance] = useState(0);
-  const [totalTransferAdvance, setTotalTransferAdvance] = useState(0);
+  const [total, setTotal] = useState({
+    totalRevenue: 0,
+    totalCardSales: 0,
+    totalCashSales: 0,
+    totalTransferSales: 0,
+    totalCashAdvance: 0,
+    totalCardAdvance: 0,
+    totalTransferAdvance: 0,
+    totalRevenueByMonth: 0,
+    totalCardSalesByMonth: 0,
+    totalCashSalesByMonth: 0,
+    totalTransferSalesByMonth: 0,
+    totalCashAdvanceByMonth: 0,
+    totalCardAdvanceByMonth: 0,
+    totalTransferAdvanceByMonth: 0,
+  });
   const [customersComment, setCustomersComment] = useState("");
-  const [totalRevenue, setTotalRevenue] = useState(0);
-  const [totalFeeSerivce, setTotalFeeSerivce] = useState(0);
   const [revenueStaff, setRevenueStaff] = useState(0);
+  const [revenueStaffByMonth, setRevenueStaffByMonth] = useState(0);
   const [totalTimeStaff, setTotalTimeStaff] = useState(0);
   const [flrCost, setFlrCost] = useState(0);
   const [profit, setProfit] = useState(0);
+  const [flrCostByMonth, setFlrCostByMonth] = useState(0);
+  const [profitByMonth, setProfitByMonth] = useState(0);
   const [arrayStaff, setArrayStaff] = useState([]);
   const [settingConfig, setSettingConfig] = useState({
     fixed_cost_estimated_by_day: 0,
@@ -103,37 +117,37 @@ export default function Detail({ record, isAdmin }) {
     {
       key: 3,
       label: "総売上(立替あり)",
-      value: formatMoney(totalRevenue),
+      value: formatMoney(total.totalRevenue),
       className: styles.itemLarge,
     },
     {
       key: 4,
       label: "総売上",
       value: formatMoney(
-        parseFloat(totalCashSales) +
-          parseFloat(totalCardSales) +
-          parseFloat(totalTransferSales)
+        parseFloat(total.totalCashSales) +
+          parseFloat(total.totalCardSales) +
+          parseFloat(total.totalTransferSales)
       ),
       className: styles.itemLarge,
     },
     {
       key: 5,
       label: "現金売上",
-      value: formatMoney(totalCashSales),
+      value: formatMoney(total.totalCashSales),
       childDataKey: "cash_sales",
       className: styles.itemMedium,
     },
     {
       key: 6,
       label: "クレカ売上",
-      value: formatMoney(totalCardSales),
+      value: formatMoney(total.totalCardSales),
       childDataKey: "card_sales",
       className: styles.itemMedium,
     },
     {
       key: 7,
-      label: "サン共同売上",
-      value: formatMoney(totalTransferSales),
+      label: "振込売上",
+      value: formatMoney(total.totalTransferSales),
       childDataKey: "transfer_sales",
       className: styles.itemMedium,
     },
@@ -141,30 +155,30 @@ export default function Detail({ record, isAdmin }) {
       key: 8,
       label: "立替精算合計",
       value: formatMoney(
-        parseFloat(totalCashAdvance) +
-          parseFloat(totalCardAdvance) +
-          parseFloat(totalTransferAdvance)
+        parseFloat(total.totalCashAdvance) +
+          parseFloat(total.totalCardAdvance) +
+          parseFloat(total.totalTransferAdvance)
       ),
       className: `${styles.mt10} ${styles.itemLarge}`,
     },
     {
       key: 9,
       label: "現金立替",
-      value: formatMoney(totalCashAdvance),
+      value: formatMoney(total.totalCashAdvance),
       childDataKey: "cash_advance",
       className: styles.itemMedium,
     },
     {
       key: 10,
       label: "クレカ立替",
-      value: formatMoney(totalCardAdvance),
+      value: formatMoney(total.totalCardAdvance),
       childDataKey: "card_advance",
       className: styles.itemMedium,
     },
     {
       key: 11,
       label: "振込立替",
-      value: formatMoney(totalTransferAdvance),
+      value: formatMoney(total.totalTransferAdvance),
       childDataKey: "transfer_advance",
       className: styles.itemMedium,
     },
@@ -191,18 +205,26 @@ export default function Detail({ record, isAdmin }) {
     if (record?.receipt?.value?.length) {
       fetchFileKey(record?.receipt?.value[0].fileKey, setImgReceipt);
     }
+
     const fetchDataCustomer = async () => {
       const promises = [
-        fetchAllRecordsByDate(ID_APP_CUSTOMER_COME, record.date.value),
-        fetchAllStaffByDate(ID_APP_REGISTER, record.date.value),
-        fetchAllRecordConfigSetting(),
+        fetchCustomersComeByDate(ID_APP_CUSTOMER_COME, record.date.value),
+        fetchRegisterStaffsByDate(ID_APP_REGISTER, record.date.value),
+        fetchConfigSetting(),
+        fetchCustomersComeByMonth(ID_APP_CUSTOMER_COME, record.date.value),
+        fetchRegisterStaffsByMonth(ID_APP_REGISTER, record.date.value),
+        fetchReportByMonth(record.date.value),
       ];
 
       try {
-        const [customersCome, staffs, configSetting] = await Promise.all(
-          promises
-        );
-
+        const [
+          customersCome,
+          staffsByDay,
+          configSetting,
+          customersComeByMonth,
+          staffsByMonth,
+          reportByMonth,
+        ] = await Promise.all(promises);
         if (configSetting.records.length > 0) {
           const firstConfigSetting = configSetting.records[0];
           setSettingConfig({
@@ -220,70 +242,110 @@ export default function Detail({ record, isAdmin }) {
               firstConfigSetting?.profit_estimated_by_day?.value,
           });
         }
-        let totalRevenue = 0;
-        let totalCashSales = 0;
-        let totalCardSales = 0;
-        let totalTransferSales = 0;
-        let totalCashAdvance = 0;
-        let totalCardAdvance = 0;
-        let totalTransferAdvance = 0;
-        let customerComment = "";
-        if (customersCome) {
-          customersCome.forEach(
-            ({
-              cash_sales,
-              card_sales,
-              transfer_sales,
-              card_advance,
-              cash_advance,
-              transfer_advance,
-              revenue,
-              comment,
-              customer,
-            }) => {
-              totalRevenue += revenue.value && parseInt(revenue.value);
-              totalCashSales += cash_sales.value && parseInt(cash_sales.value);
-              totalCardSales += card_sales.value && parseInt(card_sales.value);
-              totalTransferSales +=
-                transfer_sales.value && parseInt(transfer_sales.value);
-              totalCashAdvance +=
-                cash_advance.value && parseInt(cash_advance.value);
-              totalCardAdvance +=
-                card_advance.value && parseInt(card_advance.value);
-              totalTransferAdvance +=
-                transfer_advance.value && parseInt(transfer_advance.value);
-              customerComment +=
-                comment.value && `${customer.value} - ${comment.value}\n`;
-            }
-          );
-        }
-        calculateStaffFee(staffs);
-        setTotalCardSales(totalCardSales);
-        setTotalCashSales(totalCashSales);
-        setTotalTransferSales(totalTransferSales);
-        setTotalCashAdvance(totalCashAdvance);
-        setTotalCardAdvance(totalCardAdvance);
-        setTotalTransferAdvance(totalTransferAdvance);
-        setTotalRevenue(
-          parseInt(totalCardSales) +
-            parseInt(totalCashSales) +
-            parseInt(totalTransferSales) +
-            parseInt(totalCashAdvance) +
-            parseInt(totalCardAdvance) +
-            parseInt(totalTransferAdvance)
-        );
-        setTotalFeeSerivce(totalFeeSerivce);
+        const totalByDay =
+          customersCome.length > 0 ? calculateByDay(customersCome) : {};
+        const totalByMonth =
+          customersComeByMonth.length > 0
+            ? calculateByMonth(customersComeByMonth)
+            : {};
+        setTotal({ ...totalByDay, ...totalByMonth });
         setCustomersCome(customersCome);
-        setCustomersComment(customerComment);
+        calculateStaffFeeByDay(staffsByDay, totalByDay.totalRevenue);
+        calculateStaffFeeByMonth(
+          staffsByMonth,
+          totalByMonth.totalRevenueByMonth,
+          reportByMonth
+        );
       } catch (error) {}
     };
 
     fetchDataCustomer();
   }, [record]);
 
-  async function calculateStaffFee(staffs) {
+  function calculateByDay(customersCome) {
+    let customerComment = "";
+    customersCome.forEach(({ comment, customer }) => {
+      customerComment +=
+        comment.value && `${customer.value} - ${comment.value}\n`;
+    });
+    const totalCashSales = sumPropertyValues(customersCome, "cash_sales");
+    const totalCardSales = sumPropertyValues(customersCome, "card_sales");
+    const totalTransferSales = sumPropertyValues(
+      customersCome,
+      "transfer_sales"
+    );
+    const totalCashAdvance = sumPropertyValues(customersCome, "cash_advance");
+    const totalCardAdvance = sumPropertyValues(customersCome, "card_advance");
+    const totalTransferAdvance = sumPropertyValues(
+      customersCome,
+      "transfer_advance"
+    );
+    const totalRevenue =
+      parseInt(totalCardSales) +
+      parseInt(totalCashSales) +
+      parseInt(totalTransferSales) +
+      parseInt(totalCashAdvance) +
+      parseInt(totalCardAdvance) +
+      parseInt(totalTransferAdvance);
+    setCustomersComment(customerComment);
+
+    return {
+      totalRevenue,
+      totalCardSales,
+      totalCashSales,
+      totalTransferSales,
+      totalCashAdvance,
+      totalCardAdvance,
+      totalTransferAdvance,
+    };
+  }
+
+  function calculateByMonth(customersComeByMonth) {
+    const totalCashSalesByMonth = sumPropertyValues(
+      customersComeByMonth,
+      "cash_sales"
+    );
+    const totalCardSalesByMonth = sumPropertyValues(
+      customersComeByMonth,
+      "card_sales"
+    );
+    const totalTransferSalesByMonth = sumPropertyValues(
+      customersComeByMonth,
+      "transfer_sales"
+    );
+    const totalCashAdvanceByMonth = sumPropertyValues(
+      customersComeByMonth,
+      "cash_advance"
+    );
+    const totalCardAdvanceByMonth = sumPropertyValues(
+      customersComeByMonth,
+      "card_advance"
+    );
+    const totalTransferAdvanceByMonth = sumPropertyValues(
+      customersComeByMonth,
+      "transfer_advance"
+    );
+    const totalRevenueByMonth =
+      parseInt(totalCashSalesByMonth) +
+      parseInt(totalCardSalesByMonth) +
+      parseInt(totalTransferSalesByMonth) +
+      parseInt(totalCashAdvanceByMonth) +
+      parseInt(totalCardAdvanceByMonth) +
+      parseInt(totalTransferAdvanceByMonth);
+    return {
+      totalRevenueByMonth,
+      totalCashSalesByMonth,
+      totalCardSalesByMonth,
+      totalTransferSalesByMonth,
+      totalCashAdvanceByMonth,
+      totalCardAdvanceByMonth,
+      totalTransferAdvanceByMonth,
+    };
+  }
+
+  async function calculateStaffFeeByDay(staffs, totalRevenue) {
     const staffIds = staffs.map((val) => val.id_staff.value);
-    const infoStaffs = await fetchAllRecordsStaff(staffIds.join(", "));
+    const infoStaffs = await fetchStaff(staffIds.join(", "));
     let revenueStaff = 0;
     let totalTimeStaff = 0;
     const arrayStaff = [];
@@ -308,28 +370,84 @@ export default function Detail({ record, isAdmin }) {
         });
       });
     }
+    const purchaseAmount = record.purchase_amount.value || 0;
+    const rent = record.rent.value || 0;
+    const fixedCost = record.fixed_cost.value || 0;
+    const variableCost = record.variable_cost.value || 0;
     const flrCost =
       parseFloat(totalRevenue) -
       (parseFloat(revenueStaff) +
-        parseFloat(record.purchase_amount.value) +
-        parseFloat(record.rent.value));
-
+        parseFloat(purchaseAmount) +
+        parseFloat(rent));
     const profit =
       parseFloat(totalRevenue) -
       (parseFloat(revenueStaff) +
-        parseFloat(record.purchase_amount.value) +
-        parseFloat(record.rent.value) +
-        parseFloat(record.variable_cost.value) +
-        parseFloat(record.fixed_cost.value));
-    setFlrCost(flrCost);
-    setProfit(profit);
+        parseFloat(purchaseAmount) +
+        parseFloat(rent) +
+        parseFloat(variableCost) +
+        parseFloat(fixedCost));
+   
+    flrCost && setFlrCost(flrCost.toFixed(1));
+    profit && setProfit(profit.toFixed(1));
     setArrayStaff(arrayStaff);
-    setRevenueStaff(revenueStaff);
+    revenueStaff && setRevenueStaff(revenueStaff.toFixed(1));
     setTotalTimeStaff(totalTimeStaff);
     return revenueStaff;
   }
 
-  async function fetchAllRecordsByDate(appId, time_start) {
+  async function calculateStaffFeeByMonth(staffs, totalRevenue, reportByMonth) {
+    let staffIds = staffs.map((val) => val.id_staff.value);
+    const uniqueSet = new Set(staffIds);
+    const uniqueStaffIds = Array.from(uniqueSet);
+    const infoStaffs = await fetchStaff(uniqueStaffIds.join(", "));
+    let revenueStaff = 0;
+    if (infoStaffs) {
+      const salarys = {};
+      infoStaffs.forEach((val) => {
+        Object.assign(salarys, {
+          [val.$id.value]: val.salary.value,
+        });
+      });
+      staffs.forEach((val) => {
+        revenueStaff +=
+          parseFloat(salarys[val.id_staff.value]) *
+          (convertTimeDiff(val.time_in.value, val.time_out.value) / 3600);
+      });
+    }
+    if (reportByMonth.length > 0) {
+      const totalPurchaseAmount = sumPropertyValues(
+        reportByMonth,
+        "purchase_amount"
+      );
+      const totalRent = sumPropertyValues(reportByMonth, "rent");
+      const totalFixedCost = sumPropertyValues(reportByMonth, "fixed_cost");
+      const totalVariableCost = sumPropertyValues(
+        reportByMonth,
+        "variable_cost"
+      );
+      const flrCost =
+        parseFloat(totalRevenue) -
+        (parseFloat(revenueStaff) +
+          parseFloat(totalPurchaseAmount) +
+          parseFloat(totalRent));
+
+      const profit =
+        parseFloat(totalRevenue) -
+        (parseFloat(revenueStaff) +
+          parseFloat(totalPurchaseAmount) +
+          parseFloat(totalRent) +
+          parseFloat(totalFixedCost) +
+          parseFloat(totalVariableCost));
+
+      flrCost && setFlrCostByMonth(flrCost.toFixed(1));
+      profit && setProfitByMonth(profit.toFixed(1));
+    }
+
+    setRevenueStaffByMonth(revenueStaff.toFixed(1));
+    return revenueStaff;
+  }
+
+  async function fetchCustomersComeByDate(appId, time_start) {
     const startDate = new Date(time_start);
     let nextDate = new Date();
     nextDate.setDate(startDate.getDate() + 1);
@@ -363,66 +481,106 @@ export default function Detail({ record, isAdmin }) {
         );
       }
     );
-    return [
-      ...filterStartDateCustomer,
-      ...filterNextDateCustomer,
-    ];
+    return [...filterStartDateCustomer, ...filterNextDateCustomer];
   }
 
-  function fetchAllStaffByDate(
-    appId,
-    date,
-    opt_offset,
-    opt_limit,
-    opt_records
-  ) {
-    let offset = opt_offset || 0;
-    let limit = opt_limit || 100;
-    let allRecords = opt_records || [];
+  async function fetchCustomersComeByMonth(appId, time_start) {
+    const { startDate, endDate } = getMonthRange(time_start);
+    const datesInRange = getDatesInRange(startDate, endDate);
+    const promiseCustomerCome = [];
+    datesInRange.forEach((value) => {
+      let params = {
+        app: appId,
+        query: `time_start like "${value}"`,
+      };
+      promiseCustomerCome.push(kintone.api("/k/v1/records", "GET", params));
+    });
+
+    return Promise.all(promiseCustomerCome).then((res) => {
+      return Promise.resolve(res.flatMap((obj) => obj.records));
+    });
+  }
+
+  function fetchRegisterStaffsByDate(appId, date) {
+    let allRecords = [];
     let params = {
       app: appId,
-      query: `date = "${date}" limit ${limit} offset ${offset}`,
+      query: `date = "${date}"`,
       fields: ["id_staff", "time_in", "time_out", "staff"],
     };
     return kintone.api("/k/v1/records", "GET", params).then(function (resp) {
       allRecords = allRecords.concat(resp.records);
-      if (resp.records.length === limit) {
-        return fetchAllStaffByDate(appId, offset + limit, limit, allRecords);
-      }
       return allRecords;
     });
   }
 
-  function fetchAllRecordsStaff(idsString, opt_offset, opt_limit, opt_records) {
-    let offset = opt_offset || 0;
-    let limit = opt_limit || 100;
+  function fetchRegisterStaffsByMonth(appId, date) {
+    const { startDate, endDate } = getMonthRange(date);
+    const datesInRange = getDatesInRange(startDate, endDate);
+    let groupRangeDate = "(";
+    datesInRange.forEach((date, index) => {
+      if (index === datesInRange.length - 1) {
+        groupRangeDate += `"${date}")`;
+      } else {
+        groupRangeDate += `"${date}",`;
+      }
+    });
+
+    let allRecords = [];
+    let params = {
+      app: appId,
+      query: `date in ${groupRangeDate}`,
+      fields: ["id_staff", "time_in", "time_out", "staff", "date"],
+    };
+    return kintone.api("/k/v1/records", "GET", params).then(function (resp) {
+      allRecords = allRecords.concat(resp.records);
+      return allRecords;
+    });
+  }
+
+  function fetchStaff(idsString, opt_records) {
     let allRecords = opt_records || [];
     let params = {
       app: ID_APP_STAFF,
-      query: `$id in (${idsString}) limit ${limit} offset ${offset}`,
+      query: `$id in (${idsString})`,
       fields: ["salary", "$id", "name"],
     };
     return (
       idsString?.length &&
       kintone.api("/k/v1/records", "GET", params).then(function (resp) {
         allRecords = allRecords.concat(resp.records);
-        if (resp.records.length === limit) {
-          return fetchAllRecordsStaff(
-            idsString,
-            offset + limit,
-            limit,
-            allRecords
-          );
-        }
         return allRecords;
       })
     );
   }
 
-  function fetchAllRecordConfigSetting() {
+  function fetchConfigSetting() {
     const params = { app: ID_APP_CONFIG_SETTING };
     return kintone.api("/k/v1/records", "GET", params).then(function (resp) {
       return resp;
+    });
+  }
+
+  function fetchReportByMonth(date) {
+    const { startDate, endDate } = getMonthRange(date);
+    const datesInRange = getDatesInRange(startDate, endDate);
+    let groupRangeDate = "(";
+    datesInRange.forEach((date, index) => {
+      if (index === datesInRange.length - 1) {
+        groupRangeDate += `"${date}")`;
+      } else {
+        groupRangeDate += `"${date}",`;
+      }
+    });
+
+    let allRecords = [];
+    let params = {
+      app: idApp,
+      query: `date in ${groupRangeDate}`,
+    };
+    return kintone.api("/k/v1/records", "GET", params).then(function (resp) {
+      allRecords = allRecords.concat(resp.records);
+      return allRecords;
     });
   }
 
@@ -432,10 +590,10 @@ export default function Detail({ record, isAdmin }) {
         customer.card_sales.value > 0 && (
           <div
             className={styles.itemSmall}
-            key={`${customer.user_charge.value}_${customer[field].value}`}
+            key={`${customer.$id.value}_${customer[field].value}`}
           >
             <p>{customer.customer.value}</p>
-            <p>{formatMoney(customer[field].value)}</p>
+            <p>{formatMoney(customer[field].value || 0)}</p>
           </div>
         )
       );
@@ -493,20 +651,25 @@ export default function Detail({ record, isAdmin }) {
               <div className={styles.itemLarge}>
                 <p className={styles.mb20}>
                   出勤時間合計
-                  <span className={styles.ml20}>{`${totalTimeStaff}h`}</span>
+                  <span className={styles.ml20}>{`${totalTimeStaff.toFixed(1)}h`}</span>
                   <span className={styles.ml40}>人件費合計</span>
                   <span className={styles.ml20}>
                     {formatMoney(revenueStaff)}
                   </span>
                   <span
                     className={`${
-                      (revenueStaff / totalRevenue) * 100 >
+                      (revenueStaff / total.totalRevenue) * 100 >
                       settingConfig?.staff_revenue_percent_by_day
                         ? styles.arrowDown
                         : styles.arrowUp
                     } ${styles.ml20}`}
                   >
-                    {`${((revenueStaff / totalRevenue) * 100).toFixed(1)}%`}
+                    {`${
+                      total.totalRevenue > 0
+                        ? ((revenueStaff / total.totalRevenue) * 100).toFixed(1)
+                        : 0
+                    }`}
+                    %
                   </span>
                 </p>
               </div>
@@ -515,27 +678,33 @@ export default function Detail({ record, isAdmin }) {
                   return (
                     <>
                       <p className={styles.w30}>{staff.name}</p>
-                      <p className={styles.w70}>{staff.timeStaff}h</p>
+                      <p className={styles.w70}>{staff.timeStaff.toFixed(1)}h</p>
                     </>
                   );
                 })}
               </div>
             </div>
-
+            {/* total by day */}
             <div>
               <div className={styles.itemLarge}>
                 <p className={styles.mb20}>概算損益（日別）</p>
               </div>
               <div className={`${styles.parentItem}`}>
                 <p className={styles.w30}>売上高</p>
-                <p className={styles.w70}>{formatMoney(totalRevenue)}</p>
+                <p className={styles.w70}>{formatMoney(total.totalRevenue)}</p>
               </div>
               <div className={`${styles.parentItem}`}>
                 <p className={styles.w30}>人件費</p>
                 <p className={styles.w30}>{formatMoney(revenueStaff)}</p>
                 <p className={styles.w40}>
                   <span>
-                    （{`${((revenueStaff / totalRevenue) * 100).toFixed(1)}%`}）
+                    （
+                    {`${
+                      total.totalRevenue > 0
+                        ? ((revenueStaff / total.totalRevenue) * 100).toFixed(1)
+                        : 0
+                    }`}
+                    % ）
                   </span>
                   <span className={styles.ml20}>
                     目標{settingConfig?.staff_revenue_percent_by_day}%以下
@@ -545,7 +714,14 @@ export default function Detail({ record, isAdmin }) {
               <div className={`${styles.parentItem}`}>
                 <p className={styles.w30}>仕入高</p>
                 <p className={styles.w30}>
-                  {formatMoney(record.purchase_amount.value)}
+                  {formatMoney(
+                    (
+                      parseFloat(total.totalRevenue) *
+                      parseFloat(
+                        settingConfig.sales_estimated_percent_by_day / 100
+                      )
+                    ).toFixed(1)
+                  )}
                 </p>
                 <p className={styles.w40}>
                   <span>
@@ -569,7 +745,13 @@ export default function Detail({ record, isAdmin }) {
                 <p className={styles.w30}>{formatMoney(flrCost)}</p>
                 <p className={styles.w40}>
                   <span>
-                    （{`${((flrCost / totalRevenue) * 100).toFixed(1)}%`}）
+                    （
+                    {`${
+                      total.totalRevenue > 0
+                        ? ((flrCost / total.totalRevenue) * 100).toFixed(1)
+                        : 0
+                    }`}
+                    % ）
                   </span>
                   <span className={styles.ml20}>
                     目標{settingConfig?.flr_percent_by_day}%以上
@@ -579,7 +761,14 @@ export default function Detail({ record, isAdmin }) {
               <div className={styles.parentItem}>
                 <p className={styles.w30}>変動費</p>
                 <p className={styles.w30}>
-                  {formatMoney(record.variable_cost.value)}
+                  {formatMoney(
+                    (
+                      parseFloat(total.totalRevenue) *
+                      parseFloat(
+                        settingConfig.variable_cost_percent_by_day / 100
+                      )
+                    ).toFixed(1)
+                  )}
                 </p>
                 <p className={styles.w40}>
                   <span>
@@ -621,12 +810,146 @@ export default function Detail({ record, isAdmin }) {
               </p>
             </div>
 
+            {/* total by month */}
+            <div>
+              <div className={styles.itemLarge}>
+                <p className={styles.mb20}>概算損益（月別）</p>
+              </div>
+              <div className={`${styles.parentItem}`}>
+                <p className={styles.w30}>売上高</p>
+                <p className={styles.w70}>
+                  {formatMoney(total.totalRevenueByMonth)}
+                </p>
+              </div>
+              <div className={`${styles.parentItem}`}>
+                <p className={styles.w30}>人件費</p>
+                <p className={styles.w30}>{formatMoney(revenueStaffByMonth)}</p>
+                <p className={styles.w40}>
+                  <span>
+                    （
+                    {`${
+                      total.totalRevenueByMonth > 0
+                        ? (
+                            (revenueStaffByMonth / total.totalRevenueByMonth) *
+                            100
+                          ).toFixed(1)
+                        : 0
+                    }`}
+                    % ）
+                  </span>
+                  <span className={styles.ml20}>
+                    目標{settingConfig?.staff_revenue_percent_by_day}%以下
+                  </span>
+                </p>
+              </div>
+              <div className={`${styles.parentItem}`}>
+                <p className={styles.w30}>仕入高</p>
+                <p className={styles.w30}>
+                  {formatMoney(
+                    (
+                      parseFloat(total.totalRevenueByMonth) *
+                      parseFloat(
+                        settingConfig.sales_estimated_percent_by_day / 100
+                      )
+                    ).toFixed(1)
+                  )}
+                </p>
+                <p className={styles.w40}>
+                  <span>
+                    （売上×概算{settingConfig.sales_estimated_percent_by_day}%）
+                  </span>
+                </p>
+              </div>
+              <div
+                className={`${styles.parentItem} ${styles.mb20} ${styles.pb20} ${styles.btDashed}`}
+              >
+                <p className={styles.w30}>家賃</p>
+                <p className={styles.w30}>{formatMoney(record.rent.value)}</p>
+                <p className={styles.w40}>
+                  <span>
+                    （概算1日{formatMoney(settingConfig?.rent_per_day_by_day)}）
+                  </span>
+                </p>
+              </div>
+              <div className={styles.parentItem}>
+                <p className={styles.w30}>FLR利益</p>
+                <p className={styles.w30}>{formatMoney(flrCostByMonth)}</p>
+                <p className={styles.w40}>
+                  <span>
+                    （
+                    {`${
+                      total.totalRevenueByMonth > 0
+                        ? (
+                            (flrCostByMonth / total.totalRevenueByMonth) *
+                            100
+                          ).toFixed(1)
+                        : 0
+                    }`}
+                    % ）
+                  </span>
+                  <span className={styles.ml20}>
+                    目標{settingConfig?.flr_percent_by_day}%以上
+                  </span>
+                </p>
+              </div>
+              <div className={styles.parentItem}>
+                <p className={styles.w30}>変動費</p>
+                <p className={styles.w30}>
+                  {formatMoney(
+                    (
+                      parseFloat(total.totalRevenueByMonth) *
+                      parseFloat(
+                        settingConfig.variable_cost_percent_by_day / 100
+                      )
+                    ).toFixed(1)
+                  )}
+                </p>
+                <p className={styles.w40}>
+                  <span>
+                    （売上×概算{settingConfig?.variable_cost_percent_by_day}%）
+                  </span>
+                </p>
+              </div>
+              <div
+                className={`${styles.parentItem} ${styles.mb20} ${styles.pb20} ${styles.btDashed}`}
+              >
+                <p className={styles.w30}>固定費</p>
+                <p className={styles.w30}>
+                  {formatMoney(record.fixed_cost.value)}
+                </p>
+                <p className={styles.w40}>
+                  <span>
+                    （概算1日
+                    {formatMoney(settingConfig?.fixed_cost_estimated_by_day)}）
+                  </span>
+                </p>
+              </div>
+            </div>
+
+            <div className={`${styles.itemSmall} ${styles.ml0}`}>
+              <p className={styles.w30}>利益</p>
+              <p className={styles.w30}>
+                <span
+                  className={`${
+                    profitByMonth < settingConfig?.profit_estimated_by_day
+                      ? styles.arrowDown
+                      : styles.arrowUp
+                  }`}
+                >
+                  {formatMoney(profitByMonth)}
+                </span>
+              </p>
+              <p className={styles.w40}>
+                目標1日{formatMoney(settingConfig?.profit_estimated_by_day)}
+              </p>
+            </div>
+
             {/* comment section */}
             {dataAfter.map((val) => {
               return (
                 <div className={styles.parentItem} key={val.id}>
                   <p>{val.text}</p>
-                  <p>{val.value}</p>
+                  <p className={styles.comment}>{val.value}</p>
                 </div>
               );
             })}

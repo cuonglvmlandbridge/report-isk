@@ -13,7 +13,7 @@ import ModalAction from '../common/ModalAction';
 import { eachDayOfInterval, getDay, format } from 'date-fns';
 import _ from 'lodash';
 
-const DEFAULT_PAGE_SIZE = 1;
+const DEFAULT_PAGE_SIZE = 10;
 
 const idApp = kintone.app.getId();
 
@@ -29,7 +29,7 @@ export default function TableList({isAdmin}) {
   const [params, setParams] = useState({
     app: kintone.app.getId(),
     query: ``,
-    fields: ['$id', 'date', 'total_revenue', 'user_update', 'Created_by', 'Updated_datetime'],
+    fields: ['$id', 'date', 'total_revenue', 'user_update', 'Created_by', 'Updated_datetime', 'profit', 'revenue_staff'],
     totalCount: true
   });
   const [queryNolimit, setQueryNolimit] = useState('');
@@ -92,6 +92,22 @@ export default function TableList({isAdmin}) {
       title: '総売上',
       dataIndex: 'total_revenue',
       key: 'total_revenue',
+      align: 'center',
+      width: 100,
+      render: (item) => formatMoney(item)
+    },
+    {
+      title: '人件費',
+      dataIndex: 'revenue_staff',
+      key: 'revenue_staff',
+      align: 'center',
+      width: 100,
+      render: (item) => formatMoney(item)
+    },
+    {
+      title: '利益',
+      dataIndex: 'profit',
+      key: 'profit',
       align: 'center',
       width: 100,
       render: (item) => formatMoney(item)
