@@ -1,17 +1,15 @@
 // eslint-disable-next-line no-unused-vars
 import React, { useEffect, useRef, useState } from "react";
 import MainLayout from "../../layout/main";
-import dayjs from "dayjs";
 import styles from "./styles.module.css";
 import { Button, message } from "antd";
-import { ArrowLeftOutlined } from "@ant-design/icons";
 import {
   formatMoney,
   convertTimeDiff,
-  FORMAT_DATE_TIME,
   getDatesInRange,
   getMonthRange,
   sumPropertyValues,
+  calculateDaysFromStartOfMonth,
 } from "../../../utils/common";
 import CardComponent from "../common/card/CardComponent";
 import {
@@ -87,6 +85,7 @@ export default function Detail({ record, isAdmin }) {
     flr_percent_by_day: 0,
     profit_estimated_by_day: 0,
   });
+  const [dayFromStartOfMonth, setDayFromStartOfMonth] = useState(0);
 
   const refCopy = useRef();
 
@@ -107,18 +106,21 @@ export default function Detail({ record, isAdmin }) {
         ? record.user_update.value
         : record.Created_by.value.name,
       className: styles.itemLargest,
+      isShow: true,
     },
     {
       key: 2,
       label: "日付",
       value: record.date.value,
       className: styles.itemLargest,
+      isShow: true,
     },
     {
       key: 3,
       label: "総売上(立替あり)",
       value: formatMoney(total.totalRevenue),
       className: styles.itemLarge,
+      isShow: true,
     },
     {
       key: 4,
@@ -129,6 +131,7 @@ export default function Detail({ record, isAdmin }) {
           parseFloat(total.totalTransferSales)
       ),
       className: styles.itemLarge,
+      isShow: true,
     },
     {
       key: 5,
@@ -136,6 +139,7 @@ export default function Detail({ record, isAdmin }) {
       value: formatMoney(total.totalCashSales),
       childDataKey: "cash_sales",
       className: styles.itemMedium,
+      isShow: total.totalCashSales > 0 ? true : false,
     },
     {
       key: 6,
@@ -143,6 +147,7 @@ export default function Detail({ record, isAdmin }) {
       value: formatMoney(total.totalCardSales),
       childDataKey: "card_sales",
       className: styles.itemMedium,
+      isShow: total.totalCardSales > 0 ? true : false,
     },
     {
       key: 7,
@@ -150,6 +155,7 @@ export default function Detail({ record, isAdmin }) {
       value: formatMoney(total.totalTransferSales),
       childDataKey: "transfer_sales",
       className: styles.itemMedium,
+      isShow: total.totalTransferSales > 0 ? true : false,
     },
     {
       key: 8,
@@ -160,6 +166,7 @@ export default function Detail({ record, isAdmin }) {
           parseFloat(total.totalTransferAdvance)
       ),
       className: `${styles.mt10} ${styles.itemLarge}`,
+      isShow: true,
     },
     {
       key: 9,
@@ -167,6 +174,7 @@ export default function Detail({ record, isAdmin }) {
       value: formatMoney(total.totalCashAdvance),
       childDataKey: "cash_advance",
       className: styles.itemMedium,
+      isShow: total.totalCashAdvance > 0 ? true : false,
     },
     {
       key: 10,
@@ -174,6 +182,7 @@ export default function Detail({ record, isAdmin }) {
       value: formatMoney(total.totalCardAdvance),
       childDataKey: "card_advance",
       className: styles.itemMedium,
+      isShow: total.totalCardAdvance > 0 ? true : false,
     },
     {
       key: 11,
@@ -181,6 +190,7 @@ export default function Detail({ record, isAdmin }) {
       value: formatMoney(total.totalTransferAdvance),
       childDataKey: "transfer_advance",
       className: styles.itemMedium,
+      isShow: total.totalTransferAdvance > 0 ? true : false,
     },
   ];
 
@@ -258,7 +268,6 @@ export default function Detail({ record, isAdmin }) {
         );
       } catch (error) {}
     };
-
     fetchDataCustomer();
   }, [record]);
 
@@ -386,7 +395,7 @@ export default function Detail({ record, isAdmin }) {
         parseFloat(rent) +
         parseFloat(variableCost) +
         parseFloat(fixedCost));
-   
+
     flrCost && setFlrCost(flrCost.toFixed(1));
     profit && setProfit(profit.toFixed(1));
     setArrayStaff(arrayStaff);
@@ -396,6 +405,9 @@ export default function Detail({ record, isAdmin }) {
   }
 
   async function calculateStaffFeeByMonth(staffs, totalRevenue, reportByMonth) {
+    const dayFromStartOfMonth = calculateDaysFromStartOfMonth(
+      record.date.value
+    );
     let staffIds = staffs.map((val) => val.id_staff.value);
     const uniqueSet = new Set(staffIds);
     const uniqueStaffIds = Array.from(uniqueSet);
@@ -419,8 +431,10 @@ export default function Detail({ record, isAdmin }) {
         reportByMonth,
         "purchase_amount"
       );
-      const totalRent = sumPropertyValues(reportByMonth, "rent");
-      const totalFixedCost = sumPropertyValues(reportByMonth, "fixed_cost");
+      const totalRent =
+        sumPropertyValues(reportByMonth, "rent") * dayFromStartOfMonth;
+      const totalFixedCost =
+        sumPropertyValues(reportByMonth, "fixed_cost") * dayFromStartOfMonth;
       const totalVariableCost = sumPropertyValues(
         reportByMonth,
         "variable_cost"
@@ -442,7 +456,7 @@ export default function Detail({ record, isAdmin }) {
       flrCost && setFlrCostByMonth(flrCost.toFixed(1));
       profit && setProfitByMonth(profit.toFixed(1));
     }
-
+    setDayFromStartOfMonth(dayFromStartOfMonth);
     setRevenueStaffByMonth(revenueStaff.toFixed(1));
     return revenueStaff;
   }
@@ -587,13 +601,13 @@ export default function Detail({ record, isAdmin }) {
   const renderChildTotal = (field) => {
     return customersCome.map((customer) => {
       return (
-        customer.card_sales.value > 0 && (
+        (customer[field].value || customer[field].value === 0) && (
           <div
             className={styles.itemSmall}
             key={`${customer.$id.value}_${customer[field].value}`}
           >
             <p>{customer.customer.value}</p>
-            <p>{formatMoney(customer[field].value || 0)}</p>
+            <p>{formatMoney(customer[field].value)}</p>
           </div>
         )
       );
@@ -613,13 +627,19 @@ export default function Detail({ record, isAdmin }) {
           <div className={styles.detail} ref={refCopy}>
             {dataCharge.map((charge) => {
               return (
-                <div className={charge.className} key={`parent_${charge.key}`}>
-                  <div className={styles.parentItem}>
-                    <p>{charge.label}</p>
-                    <p>{charge.value}</p>
+                charge.isShow && (
+                  <div
+                    className={charge.className}
+                    key={`parent_${charge.key}`}
+                  >
+                    <div className={styles.parentItem}>
+                      <p>{charge.label}</p>
+                      <p>{charge.value}</p>
+                    </div>
+                    {charge.childDataKey &&
+                      renderChildTotal(charge.childDataKey)}
                   </div>
-                  {charge.childDataKey && renderChildTotal(charge.childDataKey)}
-                </div>
+                )
               );
             })}
             {imgBill && (
@@ -651,7 +671,9 @@ export default function Detail({ record, isAdmin }) {
               <div className={styles.itemLarge}>
                 <p className={styles.mb20}>
                   出勤時間合計
-                  <span className={styles.ml20}>{`${totalTimeStaff.toFixed(1)}h`}</span>
+                  <span className={styles.ml20}>{`${totalTimeStaff.toFixed(
+                    1
+                  )}h`}</span>
                   <span className={styles.ml40}>人件費合計</span>
                   <span className={styles.ml20}>
                     {formatMoney(revenueStaff)}
@@ -678,7 +700,9 @@ export default function Detail({ record, isAdmin }) {
                   return (
                     <>
                       <p className={styles.w30}>{staff.name}</p>
-                      <p className={styles.w70}>{staff.timeStaff.toFixed(1)}h</p>
+                      <p className={styles.w70}>
+                        {staff.timeStaff.toFixed(1)}h
+                      </p>
                     </>
                   );
                 })}
@@ -794,16 +818,14 @@ export default function Detail({ record, isAdmin }) {
 
             <div className={`${styles.itemSmall} ${styles.ml0}`}>
               <p className={styles.w30}>利益</p>
-              <p className={styles.w30}>
-                <span
-                  className={`${
-                    profit < settingConfig?.profit_estimated_by_day
-                      ? styles.arrowDown
-                      : styles.arrowUp
-                  }`}
-                >
-                  {formatMoney(profit)}
-                </span>
+              <p
+                className={`${styles.w30} ${
+                  profit < settingConfig?.profit_estimated_by_day
+                    ? styles.arrowDown
+                    : styles.arrowUp
+                }`}
+              >
+                <span>{formatMoney(profit)}</span>
               </p>
               <p className={styles.w40}>
                 目標1日{formatMoney(settingConfig?.profit_estimated_by_day)}
@@ -864,10 +886,13 @@ export default function Detail({ record, isAdmin }) {
                 className={`${styles.parentItem} ${styles.mb20} ${styles.pb20} ${styles.btDashed}`}
               >
                 <p className={styles.w30}>家賃</p>
-                <p className={styles.w30}>{formatMoney(record.rent.value)}</p>
+                <p className={styles.w30}>
+                  {formatMoney(record.rent.value * dayFromStartOfMonth)}
+                </p>
                 <p className={styles.w40}>
                   <span>
-                    （概算1日{formatMoney(settingConfig?.rent_per_day_by_day)}）
+                    （概算{dayFromStartOfMonth}日
+                    {formatMoney(settingConfig?.rent_per_day_by_day)}）
                   </span>
                 </p>
               </div>
@@ -915,11 +940,11 @@ export default function Detail({ record, isAdmin }) {
               >
                 <p className={styles.w30}>固定費</p>
                 <p className={styles.w30}>
-                  {formatMoney(record.fixed_cost.value)}
+                  {formatMoney(record.fixed_cost.value * dayFromStartOfMonth)}
                 </p>
                 <p className={styles.w40}>
                   <span>
-                    （概算1日
+                    （概算{dayFromStartOfMonth}日
                     {formatMoney(settingConfig?.fixed_cost_estimated_by_day)}）
                   </span>
                 </p>
@@ -928,19 +953,18 @@ export default function Detail({ record, isAdmin }) {
 
             <div className={`${styles.itemSmall} ${styles.ml0}`}>
               <p className={styles.w30}>利益</p>
-              <p className={styles.w30}>
-                <span
-                  className={`${
-                    profitByMonth < settingConfig?.profit_estimated_by_day
-                      ? styles.arrowDown
-                      : styles.arrowUp
-                  }`}
-                >
-                  {formatMoney(profitByMonth)}
-                </span>
+              <p
+                className={`${styles.w30} ${
+                  profitByMonth < settingConfig?.profit_estimated_by_day
+                    ? styles.arrowDown
+                    : styles.arrowUp
+                }`}
+              >
+                <span>{formatMoney(profitByMonth)}</span>
               </p>
               <p className={styles.w40}>
-                目標1日{formatMoney(settingConfig?.profit_estimated_by_day)}
+                目標{dayFromStartOfMonth}日
+                {formatMoney(settingConfig?.profit_estimated_by_day)}
               </p>
             </div>
 

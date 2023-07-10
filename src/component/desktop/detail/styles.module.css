@@ -119,6 +119,9 @@ p {
   position: relative;
   padding-left: 30px;
 }
+.arrowDown {
+  color: #f00;
+}
 .arrowDown::after {
   content: "";
   display: block;

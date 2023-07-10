@@ -60,17 +60,10 @@ export default function TableList({isAdmin}) {
   };
 
   useEffect(() => {
-    fetchRecords(params);
+    params.query && fetchRecords(params);
   }, [params]);
 
   useEffect(() => {
-    kintone.api(kintone.api.url('/k/v1/app/form/fields', true), 'GET', {'app': idApp}, function(resp) {
-      // success
-      setFields(resp.properties);
-    }, function(error) {
-      // error
-    });
-
     const { firstDate, lastDate } = getFirstAndLastDateOfCurrentMonth();
     const groupRangeDate = makeGroupDateInQuery(firstDate, lastDate);
 

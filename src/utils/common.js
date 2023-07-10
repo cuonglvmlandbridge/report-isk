@@ -103,5 +103,11 @@ export function sumPropertyValues(arr, property) {
   }, 0);
 }
 
+export function calculateDaysFromStartOfMonth(dateString) {
+  var dateParts = dateString.split("/");
+  var day = parseInt(dateParts[2]);
+  return day;
+}
+
 
 
