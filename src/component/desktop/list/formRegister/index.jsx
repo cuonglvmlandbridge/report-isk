@@ -24,6 +24,7 @@ import {
   ID_APP_CUSTOMER_COME,
   ID_APP_REGISTER,
   ID_APP_STAFF,
+  ID_APP_CONFIG_SETTING
 } from "../../../common/const";
 import styles from "./styles.module.css";
 import CardComponent from "../../common/card/CardComponent";
@@ -155,6 +156,14 @@ function fetchReportByDate(appId, date) {
     return resp.records.length > 0 ? resp.records[0] : {};
   });
 }
+
+function fetchConfigSetting() {
+  const params = { app: ID_APP_CONFIG_SETTING };
+  return kintone.api("/k/v1/records", "GET", params).then(function (resp) {
+    return resp;
+  });
+}
+
 
 export default function FormRegister({ type, event, isAdmin }) {
   const [form] = Form.useForm();
@@ -376,12 +385,33 @@ export default function FormRegister({ type, event, isAdmin }) {
   };
 
   const setTotalFormValue = async (date) => {
-    const [customersCome, staffs, reports] = await Promise.all([
-      await fetchAllRecordsByDate(ID_APP_CUSTOMER_COME, date),
-      await fetchAllStaffByDate(ID_APP_REGISTER, date),
-      await fetchReportByDate(idApp, date),
+    const [customersCome, staffs, reports, configSetting] = await Promise.all([
+      fetchAllRecordsByDate(ID_APP_CUSTOMER_COME, date),
+      fetchAllStaffByDate(ID_APP_REGISTER, date),
+      fetchReportByDate(idApp, date),
+      fetchConfigSetting(),
     ]);
 
+    const rentConfig = (configSetting.records.length > 0 && configSetting.records[0]?.rent_per_day_by_day.value) || 0;
+    const fixedCostConfig = (configSetting.records.length > 0 && configSetting.records[0]?.fixed_cost_estimated_by_day.value) || 0;
+    const staffIds = staffs.map((val) => val.id_staff.value);
+    const infoStaffs = await fetchAllRecordsStaff(staffIds.join(", "));
+    let staffRevenue = 0;
+    if (infoStaffs) {
+      const salarys = {};
+      infoStaffs.forEach((val) => {
+        Object.assign(salarys, {
+          [val.$id.value]: val.salary.value,
+        });
+      });
+      staffs.forEach(
+        (val) =>
+          (staffRevenue +=
+            (salarys[val.id_staff.value] *
+              convertTimeDiff(val.time_in.value, val.time_out.value)) /
+            3600)
+      );
+    }
     if (customersCome) {
       let customerComment = "";
       customersCome.forEach(({ comment, customer }) => {
@@ -416,38 +446,18 @@ export default function FormRegister({ type, event, isAdmin }) {
       form.setFieldValue("total_transfer_advance", totalTransferAdvance);
       form.setFieldValue("total_revenue", totalRevenue);
     }
-
-    const staffIds = staffs.map((val) => val.id_staff.value);
-    const infoStaffs = await fetchAllRecordsStaff(staffIds.join(", "));
-    let staffRevenue = 0;
-    if (infoStaffs) {
-      const salarys = {};
-      infoStaffs.forEach((val) => {
-        Object.assign(salarys, {
-          [val.$id.value]: val.salary.value,
-        });
-      });
-      staffs.forEach(
-        (val) =>
-          (staffRevenue +=
-            (salarys[val.id_staff.value] *
-              convertTimeDiff(val.time_in.value, val.time_out.value)) /
-            3600)
-      );
-    }
     const revenueStaff = isNaN(staffRevenue) ? 0 : staffRevenue;
     form.setFieldValue("revenue_staff", revenueStaff.toFixed(1));
+    form.setFieldValue("rent", rentConfig);
+    form.setFieldValue("fixed_cost", fixedCostConfig);
+
     if (Object.keys(reports).length !== 0) {
       form.setFieldValue("purchase_amount", reports?.purchase_amount.value);
-      form.setFieldValue("rent", reports?.rent.value);
       form.setFieldValue("variable_cost", reports?.variable_cost.value);
-      form.setFieldValue("fixed_cost", reports?.fixed_cost.value);
       setIdReport(reports.$id.value);
     } else {
       form.setFieldValue("purchase_amount", "");
-      form.setFieldValue("rent", "");
       form.setFieldValue("variable_cost", "");
-      form.setFieldValue("fixed_cost", "");
       setIdReport(0);
     }
   };

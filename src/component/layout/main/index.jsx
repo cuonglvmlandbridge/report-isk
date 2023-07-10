@@ -15,6 +15,7 @@ import {
    ID_APP_SALARY, 
   ID_APP_SETTING,
   ID_APP_CONFIG_SETTING,
+  ID_WAREHOUSE,
   ID_APP_RANK
 } from '../../common/const';
 import {logout} from '../../../utils/common';
@@ -130,6 +131,11 @@ export default function MainLayout({children, isAdmin}) {
       id: 14,
       text: '損益目標設定',
       onclick: () => window.location.href = `${URL_WEB}/k/${ID_APP_CONFIG_SETTING}/`
+    },
+    {
+      id: 15,
+      text: '在庫管理',
+      onclick: () => window.location.href = `${URL_WEB}/k/${ID_WAREHOUSE}/`
     },
     {
       id: 9,

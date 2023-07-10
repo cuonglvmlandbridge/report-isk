@@ -119,6 +119,9 @@ p {
   position: relative;
   padding-left: 30px;
 }
+.arrowDown {
+  color: #f00;
+}
 .arrowDown::after {
   content: "";
   display: block;
@@ -140,4 +143,9 @@ p {
 .comment {
   white-space: pre-line;
   line-height: 25px;
+}
+.flex {
+  display: flex;
+  width: 100%;
+  justify-content: space-between;
 }
