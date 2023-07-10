@@ -292,10 +292,7 @@ export default function Detail({ record, isAdmin }) {
     const totalRevenue =
       parseInt(totalCardSales) +
       parseInt(totalCashSales) +
-      parseInt(totalTransferSales) +
-      parseInt(totalCashAdvance) +
-      parseInt(totalCardAdvance) +
-      parseInt(totalTransferAdvance);
+      parseInt(totalTransferSales);
     setCustomersComment(customerComment);
 
     return {
@@ -337,10 +334,7 @@ export default function Detail({ record, isAdmin }) {
     const totalRevenueByMonth =
       parseInt(totalCashSalesByMonth) +
       parseInt(totalCardSalesByMonth) +
-      parseInt(totalTransferSalesByMonth) +
-      parseInt(totalCashAdvanceByMonth) +
-      parseInt(totalCardAdvanceByMonth) +
-      parseInt(totalTransferAdvanceByMonth);
+      parseInt(totalTransferSalesByMonth);
     return {
       totalRevenueByMonth,
       totalCashSalesByMonth,
@@ -681,9 +675,7 @@ export default function Detail({ record, isAdmin }) {
                   <span
                     className={`${
                       (revenueStaff / total.totalRevenue) * 100 >
-                      settingConfig?.staff_revenue_percent_by_day
-                        ? styles.arrowDown
-                        : styles.arrowUp
+                      settingConfig?.staff_revenue_percent_by_day && styles.arrowDown
                     } ${styles.ml20}`}
                   >
                     {`${
@@ -820,9 +812,7 @@ export default function Detail({ record, isAdmin }) {
               <p className={styles.w30}>利益</p>
               <p
                 className={`${styles.w30} ${
-                  profit < settingConfig?.profit_estimated_by_day
-                    ? styles.arrowDown
-                    : styles.arrowUp
+                  profit < settingConfig?.profit_estimated_by_day && styles.arrowDown
                 }`}
               >
                 <span>{formatMoney(profit)}</span>
@@ -955,9 +945,7 @@ export default function Detail({ record, isAdmin }) {
               <p className={styles.w30}>利益</p>
               <p
                 className={`${styles.w30} ${
-                  profitByMonth < settingConfig?.profit_estimated_by_day
-                    ? styles.arrowDown
-                    : styles.arrowUp
+                  profitByMonth < settingConfig?.profit_estimated_by_day && styles.arrowDown
                 }`}
               >
                 <span>{formatMoney(profitByMonth)}</span>

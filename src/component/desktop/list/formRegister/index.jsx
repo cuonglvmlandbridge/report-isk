@@ -433,10 +433,7 @@ export default function FormRegister({ type, event, isAdmin }) {
       const totalRevenue =
         parseInt(totalCardSales) +
         parseInt(totalCashSales) +
-        parseInt(totalTransferSales) +
-        parseInt(totalCashAdvance) +
-        parseInt(totalCardAdvance) +
-        parseInt(totalTransferAdvance);
+        parseInt(totalTransferSales);
       form.setFieldValue("comment", customerComment);
       form.setFieldValue("total_cash_sales", totalCashSales);
       form.setFieldValue("total_card_sales", totalCardSales);
