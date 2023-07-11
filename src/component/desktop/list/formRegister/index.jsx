@@ -164,7 +164,6 @@ function fetchConfigSetting() {
   });
 }
 
-
 export default function FormRegister({ type, event, isAdmin }) {
   const [form] = Form.useForm();
   const [staff, setStaff] = useState([]);
@@ -173,6 +172,8 @@ export default function FormRegister({ type, event, isAdmin }) {
   const [fileListBill, setFileListBill] = useState([]);
   const [fileListReceipt, setFileListReceipt] = useState([]);
   const [idReport, setIdReport] = useState(0);
+  const [purchaseAmount, setPurchaseAmount] = useState(0);
+  const [variableCost, setVariableCost] = useState(0);
 
   const renderModalContentDetail = (data) => {
     return (
@@ -261,10 +262,8 @@ export default function FormRegister({ type, event, isAdmin }) {
   };
 
   const onFinish = (payload) => {
-    const purchaseAmount = payload.purchase_amount || 0;
     const rent = payload.rent || 0;
     const fixedCost = payload.fixed_cost || 0;
-    const variableCost = payload.variable_cost || 0;
     const profit =
       parseFloat(payload.total_revenue) -
       (parseFloat(payload.revenue_staff) +
@@ -391,9 +390,6 @@ export default function FormRegister({ type, event, isAdmin }) {
       fetchReportByDate(idApp, date),
       fetchConfigSetting(),
     ]);
-
-    const rentConfig = (configSetting.records.length > 0 && configSetting.records[0]?.rent_per_day_by_day.value) || 0;
-    const fixedCostConfig = (configSetting.records.length > 0 && configSetting.records[0]?.fixed_cost_estimated_by_day.value) || 0;
     const staffIds = staffs.map((val) => val.id_staff.value);
     const infoStaffs = await fetchAllRecordsStaff(staffIds.join(", "));
     let staffRevenue = 0;
@@ -442,22 +438,33 @@ export default function FormRegister({ type, event, isAdmin }) {
       form.setFieldValue("total_card_advance", totalCardAdvance);
       form.setFieldValue("total_transfer_advance", totalTransferAdvance);
       form.setFieldValue("total_revenue", totalRevenue);
+      setConfigCost(totalRevenue, configSetting);
     }
     const revenueStaff = isNaN(staffRevenue) ? 0 : staffRevenue;
     form.setFieldValue("revenue_staff", revenueStaff.toFixed(1));
-    form.setFieldValue("rent", rentConfig);
-    form.setFieldValue("fixed_cost", fixedCostConfig);
-
     if (Object.keys(reports).length !== 0) {
-      form.setFieldValue("purchase_amount", reports?.purchase_amount.value);
-      form.setFieldValue("variable_cost", reports?.variable_cost.value);
       setIdReport(reports.$id.value);
     } else {
-      form.setFieldValue("purchase_amount", "");
-      form.setFieldValue("variable_cost", "");
       setIdReport(0);
     }
   };
+
+  const setConfigCost = (totalRevenue, configSetting) => {
+    let rentPerday = 0;
+    let saleEstPercent = 0;
+    let variableCost = 0;
+    let fixedCost = 0;
+    if (configSetting.records.length > 0) {
+      saleEstPercent = configSetting.records[0].sales_estimated_percent_by_day.value;
+      variableCost = configSetting.records[0].variable_cost_percent_by_day.value;
+      fixedCost = configSetting.records[0].fixed_cost_estimated_by_day.value;
+      rentPerday = configSetting.records[0].rent_per_day_by_day.value;
+    }
+    form.setFieldValue("rent", rentPerday);
+    form.setFieldValue("fixed_cost", fixedCost);
+    setPurchaseAmount(totalRevenue*(parseFloat(saleEstPercent/100)));
+    setVariableCost(totalRevenue*(parseFloat(variableCost/100)));
+  }
 
   const renderModalContent = () => {
     const registerEdit = [

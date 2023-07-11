@@ -118,7 +118,11 @@ export default function Detail({ record, isAdmin }) {
     {
       key: 3,
       label: "総売上(立替あり)",
-      value: formatMoney(total.totalRevenue),
+      value: formatMoney( parseFloat(total.totalCashSales) +
+      parseFloat(total.totalCardSales) +
+      parseFloat(total.totalTransferSales)+parseFloat(total.totalCashAdvance) +
+      parseFloat(total.totalCardAdvance) +
+      parseFloat(total.totalTransferAdvance)),
       className: styles.itemLarge,
       isShow: true,
     },
@@ -260,11 +264,12 @@ export default function Detail({ record, isAdmin }) {
             : {};
         setTotal({ ...totalByDay, ...totalByMonth });
         setCustomersCome(customersCome);
-        calculateStaffFeeByDay(staffsByDay, totalByDay.totalRevenue);
+        calculateStaffFeeByDay(staffsByDay, totalByDay.totalRevenue, configSetting);
         calculateStaffFeeByMonth(
           staffsByMonth,
           totalByMonth.totalRevenueByMonth,
-          reportByMonth
+          reportByMonth,
+          configSetting
         );
       } catch (error) {}
     };
@@ -346,7 +351,7 @@ export default function Detail({ record, isAdmin }) {
     };
   }
 
-  async function calculateStaffFeeByDay(staffs, totalRevenue) {
+  async function calculateStaffFeeByDay(staffs, totalRevenue, configSetting) {
     const staffIds = staffs.map((val) => val.id_staff.value);
     const infoStaffs = await fetchStaff(staffIds.join(", "));
     let revenueStaff = 0;
@@ -373,22 +378,28 @@ export default function Detail({ record, isAdmin }) {
         });
       });
     }
-    const purchaseAmount = record.purchase_amount.value || 0;
-    const rent = record.rent.value || 0;
-    const fixedCost = record.fixed_cost.value || 0;
-    const variableCost = record.variable_cost.value || 0;
+    
+    let rentPerday = 0;
+    let saleEstPercent = 0;
+    let variableCost = 0;
+    let fixedCost = 0;
+    if (configSetting.records.length > 0) {
+      saleEstPercent = configSetting.records[0].sales_estimated_percent_by_day.value;
+      rentPerday = configSetting.records[0].rent_per_day_by_day.value;
+      variableCost = configSetting.records[0].variable_cost_percent_by_day.value;
+      fixedCost = configSetting.records[0].fixed_cost_estimated_by_day.value;
+    }
+    const purchaseAmount = totalRevenue*(saleEstPercent/100);
+    const rent = rentPerday;
     const flrCost =
       parseFloat(totalRevenue) -
       (parseFloat(revenueStaff) +
         parseFloat(purchaseAmount) +
         parseFloat(rent));
+
     const profit =
-      parseFloat(totalRevenue) -
-      (parseFloat(revenueStaff) +
-        parseFloat(purchaseAmount) +
-        parseFloat(rent) +
-        parseFloat(variableCost) +
-        parseFloat(fixedCost));
+      parseFloat(flrCost) -
+      (parseFloat(totalRevenue*(variableCost/100)) + parseFloat(fixedCost));
 
     flrCost && setFlrCost(flrCost.toFixed(1));
     profit && setProfit(profit.toFixed(1));
@@ -398,7 +409,7 @@ export default function Detail({ record, isAdmin }) {
     return revenueStaff;
   }
 
-  async function calculateStaffFeeByMonth(staffs, totalRevenue, reportByMonth) {
+  async function calculateStaffFeeByMonth(staffs, totalRevenue, reportByMonth, configSetting) {
     const dayFromStartOfMonth = calculateDaysFromStartOfMonth(
       record.date.value
     );
@@ -421,32 +432,27 @@ export default function Detail({ record, isAdmin }) {
       });
     }
     if (reportByMonth.length > 0) {
-      const totalPurchaseAmount = sumPropertyValues(
-        reportByMonth,
-        "purchase_amount"
-      );
-      const totalRent =
-        sumPropertyValues(reportByMonth, "rent") * dayFromStartOfMonth;
-      const totalFixedCost =
-        sumPropertyValues(reportByMonth, "fixed_cost") * dayFromStartOfMonth;
-      const totalVariableCost = sumPropertyValues(
-        reportByMonth,
-        "variable_cost"
-      );
+      let rentPerday = 0;
+      let saleEstPercent = 0;
+      let variableCost = 0;
+      let fixedCost = 0;
+      if (configSetting.records.length > 0) {
+        saleEstPercent = configSetting.records[0].sales_estimated_percent_by_day.value;
+        rentPerday = configSetting.records[0].rent_per_day_by_day.value;
+        variableCost = configSetting.records[0].variable_cost_percent_by_day.value;
+        fixedCost = configSetting.records[0].fixed_cost_estimated_by_day.value;
+      }
+      const totalRent = rentPerday * dayFromStartOfMonth;
+      const totalPurchaseAmount = totalRevenue*(saleEstPercent/100);
       const flrCost =
         parseFloat(totalRevenue) -
         (parseFloat(revenueStaff) +
           parseFloat(totalPurchaseAmount) +
           parseFloat(totalRent));
-
       const profit =
-        parseFloat(totalRevenue) -
-        (parseFloat(revenueStaff) +
-          parseFloat(totalPurchaseAmount) +
-          parseFloat(totalRent) +
-          parseFloat(totalFixedCost) +
-          parseFloat(totalVariableCost));
-
+        parseFloat(flrCost) -
+        (parseFloat(fixedCost*dayFromStartOfMonth) +
+          parseFloat(totalRevenue*(variableCost/100)));
       flrCost && setFlrCostByMonth(flrCost.toFixed(1));
       profit && setProfitByMonth(profit.toFixed(1));
     }
