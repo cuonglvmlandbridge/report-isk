@@ -9,3 +9,10 @@
 .formRegister button {
     margin-left: 250px;
 }
+
+:global(.ant-space-item) {
+    position: relative;
+}
+.iconStyle {
+    font-size: 25px;
+}

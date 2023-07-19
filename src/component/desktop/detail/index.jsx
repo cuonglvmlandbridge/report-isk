@@ -10,6 +10,7 @@ import {
   getMonthRange,
   sumPropertyValues,
   calculateDaysFromStartOfMonth,
+  getValueByKey,
 } from "../../../utils/common";
 import CardComponent from "../common/card/CardComponent";
 import {
@@ -17,6 +18,7 @@ import {
   ID_APP_REGISTER,
   ID_APP_STAFF,
   ID_APP_CONFIG_SETTING,
+  ID_CUSTOMER_WINE,
 } from "../../common/const";
 import dayjs from "dayjs";
 
@@ -119,7 +121,14 @@ export default function Detail({ record, isAdmin }) {
     {
       key: 3,
       label: "総売上(立替あり)",
-      value: formatMoney(total.totalRevenue),
+      value: formatMoney(
+        parseFloat(total.totalCashSales) +
+          parseFloat(total.totalCardSales) +
+          parseFloat(total.totalTransferSales) +
+          parseFloat(total.totalCashAdvance) +
+          parseFloat(total.totalCardAdvance) +
+          parseFloat(total.totalTransferAdvance)
+      ),
       className: styles.itemLarge,
       isShow: true,
     },
@@ -216,7 +225,6 @@ export default function Detail({ record, isAdmin }) {
     if (record?.receipt?.value?.length) {
       fetchFileKey(record?.receipt?.value[0].fileKey, setImgReceipt);
     }
-
     const fetchDataCustomer = async () => {
       const promises = [
         fetchCustomersComeByDate(ID_APP_CUSTOMER_COME, record.date.value),
@@ -225,7 +233,6 @@ export default function Detail({ record, isAdmin }) {
         fetchCustomersComeByMonth(ID_APP_CUSTOMER_COME, record.date.value),
         fetchRegisterStaffsByMonth(ID_APP_REGISTER, record.date.value),
         fetchReportByMonth(record.date.value),
-        fetchCommodities(record.date.value),
       ];
 
       try {
@@ -236,8 +243,17 @@ export default function Detail({ record, isAdmin }) {
           customersComeByMonth,
           staffsByMonth,
           reportByMonth,
-          commodities,
         ] = await Promise.all(promises);
+        // const listCustomerIds = getValueByKey(customersCome, 'customer_id');
+        handleCommodities(customersCome);
+        const totalByDay =
+          customersCome.length > 0 ? calculateByDay(customersCome) : {};
+        const totalByMonth =
+          customersComeByMonth.length > 0
+            ? calculateByMonth(customersComeByMonth)
+            : {};
+        setTotal({ ...totalByDay, ...totalByMonth });
+        setCustomersCome(customersCome);
 
         if (configSetting.records.length > 0) {
           const firstConfigSetting = configSetting.records[0];
@@ -256,21 +272,19 @@ export default function Detail({ record, isAdmin }) {
               firstConfigSetting?.profit_estimated_by_day?.value,
           });
         }
-        const totalByDay =
-          customersCome.length > 0 ? calculateByDay(customersCome) : {};
-        const totalByMonth =
-          customersComeByMonth.length > 0
-            ? calculateByMonth(customersComeByMonth)
-            : {};
-        setTotal({ ...totalByDay, ...totalByMonth });
-        setCustomersCome(customersCome);
-        calculateStaffFeeByDay(staffsByDay, totalByDay.totalRevenue);
+        calculateStaffFeeByDay(
+          staffsByDay,
+          totalByDay.totalRevenue,
+          configSetting,
+          customersCome
+        );
         calculateStaffFeeByMonth(
           staffsByMonth,
           totalByMonth.totalRevenueByMonth,
-          reportByMonth
+          reportByMonth,
+          configSetting,
+          customersComeByMonth
         );
-        setCommodities(commodities);
       } catch (error) {}
     };
     fetchDataCustomer();
@@ -297,10 +311,7 @@ export default function Detail({ record, isAdmin }) {
     const totalRevenue =
       parseInt(totalCardSales) +
       parseInt(totalCashSales) +
-      parseInt(totalTransferSales) +
-      parseInt(totalCashAdvance) +
-      parseInt(totalCardAdvance) +
-      parseInt(totalTransferAdvance);
+      parseInt(totalTransferSales);
     setCustomersComment(customerComment);
 
     return {
@@ -342,10 +353,8 @@ export default function Detail({ record, isAdmin }) {
     const totalRevenueByMonth =
       parseInt(totalCashSalesByMonth) +
       parseInt(totalCardSalesByMonth) +
-      parseInt(totalTransferSalesByMonth) +
-      parseInt(totalCashAdvanceByMonth) +
-      parseInt(totalCardAdvanceByMonth) +
-      parseInt(totalTransferAdvanceByMonth);
+      parseInt(totalTransferSalesByMonth);
+
     return {
       totalRevenueByMonth,
       totalCashSalesByMonth,
@@ -357,11 +366,43 @@ export default function Detail({ record, isAdmin }) {
     };
   }
 
-  async function calculateStaffFeeByDay(staffs, totalRevenue) {
+  function handleCommodities(customerCome) {
+    const commodities = [];
+    customerCome.forEach(({ wineInfomation }) => {
+      if (wineInfomation.value) {
+        commodities.push(JSON.parse(wineInfomation.value));
+      }
+    });
+    setCommodities(commodities.flat());
+  }
+
+  async function calculateStaffFeeByDay(
+    staffs,
+    totalRevenue,
+    configSetting,
+    customerCome
+  ) {
+    let purchaseAmount = 0;
+    let rent = 0;
+    let fixedCost = 0;
+    let variableCost = 0;
+    if (configSetting.records.length > 0) {
+      const firstConfigSetting = configSetting.records[0];
+      purchaseAmount =
+        totalRevenue *
+        (firstConfigSetting.sales_estimated_percent_by_day.value / 100);
+      rent = firstConfigSetting.rent_per_day_by_day.value;
+      variableCost =
+        totalRevenue *
+        (firstConfigSetting.variable_cost_percent_by_day.value / 100);
+      fixedCost = firstConfigSetting.fixed_cost_estimated_by_day.value;
+    }
     const staffIds = staffs.map((val) => val.id_staff.value);
     const infoStaffs = await fetchStaff(staffIds.join(", "));
     let revenueStaff = 0;
     let totalTimeStaff = 0;
+    let totalTips = 0;
+    let totalFeeTrip = 0;
     const arrayStaff = [];
     if (infoStaffs) {
       const salarys = {};
@@ -369,6 +410,17 @@ export default function Detail({ record, isAdmin }) {
         Object.assign(salarys, {
           [val.$id.value]: val.salary.value,
         });
+        const customerSelected = customerCome.find(
+          ({ id_staff_tip, check_tip }) => {
+            return check_tip.value[0] && id_staff_tip.value === val.$id.value;
+          }
+        );
+        const totalSales =
+          parseInt(customerSelected?.cash_sales.value || 0) +
+          parseInt(customerSelected?.card_sales.value || 0) +
+          parseInt(customerSelected?.transfer_sales.value || 0);
+        totalTips += totalSales * parseFloat(val.rate_tips.value / 100);
+        totalFeeTrip += parseFloat(val.fee_trip.value);
       });
 
       staffs.forEach((val) => {
@@ -384,23 +436,15 @@ export default function Detail({ record, isAdmin }) {
         });
       });
     }
-    const purchaseAmount = record.purchase_amount.value || 0;
-    const rent = record.rent.value || 0;
-    const fixedCost = record.fixed_cost.value || 0;
-    const variableCost = record.variable_cost.value || 0;
+    revenueStaff = revenueStaff + totalTips + totalFeeTrip;
+
     const flrCost =
       parseFloat(totalRevenue) -
-      (parseFloat(revenueStaff) +
-        parseFloat(purchaseAmount) +
-        parseFloat(rent));
+      parseFloat(revenueStaff) -
+      parseFloat(purchaseAmount) -
+      parseFloat(rent);
     const profit =
-      parseFloat(totalRevenue) -
-      (parseFloat(revenueStaff) +
-        parseFloat(purchaseAmount) +
-        parseFloat(rent) +
-        parseFloat(variableCost) +
-        parseFloat(fixedCost));
-
+      parseFloat(flrCost) - parseFloat(variableCost) - parseFloat(fixedCost);
     flrCost && setFlrCost(flrCost.toFixed(1));
     profit && setProfit(profit.toFixed(1));
     setArrayStaff(arrayStaff);
@@ -409,7 +453,13 @@ export default function Detail({ record, isAdmin }) {
     return revenueStaff;
   }
 
-  async function calculateStaffFeeByMonth(staffs, totalRevenue, reportByMonth) {
+  async function calculateStaffFeeByMonth(
+    staffs,
+    totalRevenue,
+    reportByMonth,
+    configSetting,
+    customerCome
+  ) {
     const dayFromStartOfMonth = calculateDaysFromStartOfMonth(
       record.date.value
     );
@@ -418,12 +468,26 @@ export default function Detail({ record, isAdmin }) {
     const uniqueStaffIds = Array.from(uniqueSet);
     const infoStaffs = await fetchStaff(uniqueStaffIds.join(", "));
     let revenueStaff = 0;
+    let totalTips = 0;
+    let totalFeeTrip = 0;
     if (infoStaffs) {
       const salarys = {};
       infoStaffs.forEach((val) => {
         Object.assign(salarys, {
           [val.$id.value]: val.salary.value,
         });
+        const customerSelected = customerCome.find(
+          ({ id_staff_tip, check_tip }) => {
+            return check_tip.value[0] && id_staff_tip.value === val.$id.value;
+          }
+        );
+
+        const totalSales =
+          parseInt(customerSelected?.cash_sales.value || 0) +
+          parseInt(customerSelected?.card_sales.value || 0) +
+          parseInt(customerSelected?.transfer_sales.value || 0);
+        totalTips += totalSales * parseFloat(val.rate_tips.value / 100);
+        totalFeeTrip += parseFloat(val.fee_trip.value);
       });
       staffs.forEach((val) => {
         revenueStaff +=
@@ -431,32 +495,37 @@ export default function Detail({ record, isAdmin }) {
           (convertTimeDiff(val.time_in.value, val.time_out.value) / 3600);
       });
     }
+
     if (reportByMonth.length > 0) {
-      const totalPurchaseAmount = sumPropertyValues(
-        reportByMonth,
-        "purchase_amount"
-      );
-      const totalRent =
-        sumPropertyValues(reportByMonth, "rent") * dayFromStartOfMonth;
-      const totalFixedCost =
-        sumPropertyValues(reportByMonth, "fixed_cost") * dayFromStartOfMonth;
-      const totalVariableCost = sumPropertyValues(
-        reportByMonth,
-        "variable_cost"
-      );
+      let totalPurchaseAmount = 0;
+      let totalRent = 0;
+      let totalFixedCost = 0;
+      let totalVariableCost = 0;
+      if (configSetting.records.length > 0) {
+        const firstConfigSetting = configSetting.records[0];
+        totalPurchaseAmount =
+          totalRevenue *
+          (firstConfigSetting.sales_estimated_percent_by_day.value / 100);
+        totalRent =
+          firstConfigSetting.rent_per_day_by_day.value * dayFromStartOfMonth;
+        totalVariableCost =
+          totalRevenue *
+          (firstConfigSetting.variable_cost_percent_by_day.value / 100);
+        totalFixedCost =
+          firstConfigSetting.fixed_cost_estimated_by_day.value *
+          dayFromStartOfMonth;
+      }
+      revenueStaff = revenueStaff + totalTips + totalFeeTrip;
       const flrCost =
         parseFloat(totalRevenue) -
-        (parseFloat(revenueStaff) +
-          parseFloat(totalPurchaseAmount) +
-          parseFloat(totalRent));
+        parseFloat(revenueStaff) -
+        parseFloat(totalPurchaseAmount) -
+        parseFloat(totalRent);
 
       const profit =
-        parseFloat(totalRevenue) -
-        (parseFloat(revenueStaff) +
-          parseFloat(totalPurchaseAmount) +
-          parseFloat(totalRent) +
-          parseFloat(totalFixedCost) +
-          parseFloat(totalVariableCost));
+        parseFloat(flrCost) -
+        parseFloat(totalFixedCost) -
+        parseFloat(totalVariableCost);
 
       flrCost && setFlrCostByMonth(flrCost.toFixed(1));
       profit && setProfitByMonth(profit.toFixed(1));
@@ -562,7 +631,6 @@ export default function Detail({ record, isAdmin }) {
     let params = {
       app: ID_APP_STAFF,
       query: `$id in (${idsString})`,
-      fields: ["salary", "$id", "name"],
     };
     return (
       idsString?.length &&
@@ -603,18 +671,18 @@ export default function Detail({ record, isAdmin }) {
     });
   }
 
-  function fetchCommodities(date) {
-    const formatDate = dayjs(date).format("YYYY-MM-DD");
-    let allRecords = [];
-    let params = {
-      app: 47,
-      query: `createDate = "${formatDate}"`,
-    };
-    return kintone.api("/k/v1/records", "GET", params).then(function (resp) {
-      allRecords = allRecords.concat(resp.records);
-      return allRecords;
-    });
-  }
+  // function fetchCommodities(date) {
+  //   const formatDate = dayjs(date).format("YYYY-MM-DD");
+  //   let allRecords = [];
+  //   let params = {
+  //     app: 47,
+  //     query: `createDate = "${formatDate}"`,
+  //   };
+  //   return kintone.api("/k/v1/records", "GET", params).then(function (resp) {
+  //     allRecords = allRecords.concat(resp.records);
+  //     return allRecords;
+  //   });
+  // }
 
   const renderChildTotal = (field) => {
     return customersCome.map((customer) => {
@@ -759,14 +827,55 @@ export default function Detail({ record, isAdmin }) {
                 {commodities.map((commodity) => {
                   return (
                     <div className={styles.parentItem}>
-                      <p className={styles.w30}>{commodity.trademark.value}</p>
-                      <p className={styles.w70}>{commodity.quantity.value}本</p>
+                      <p className={styles.w30}>{commodity.trademark}</p>
+                      <p className={styles.w70}>{commodity.emptyBottle}本</p>
                     </div>
                   );
                 })}
               </div>
             )}
-            {/* total by day */}
+            {/* commodities */}
+            {/* broken glass */}
+            {record?.brokenGlass?.value && (
+              <div>
+                <div className={styles.itemLarge}>
+                  <p className={styles.mb20}>【割れたグラス】</p>
+                </div>
+
+                {JSON.parse(record.brokenGlass.value).map(
+                  ({ name, quantity }) => {
+                    return (
+                      <div className={styles.parentItem}>
+                        <p className={styles.w30}>{name}</p>
+                        <p className={styles.w70}>{quantity}個</p>
+                      </div>
+                    );
+                  }
+                )}
+              </div>
+            )}
+            {/* broken glass  */}
+            {/* purchase */}
+            {record?.purchaseList?.value && (
+              <div>
+                <div className={styles.itemLarge}>
+                  <p className={styles.mb20}>【買い出し】</p>
+                </div>
+
+                {JSON.parse(record.purchaseList.value).map(
+                  ({ name, quantity, amount }) => {
+                    return (
+                      <div className={styles.parentItem}>
+                        <p className={styles.w30}>{name}個</p>
+                        <p className={styles.w30}>{quantity}個</p>
+                        <p className={styles.w40}>{amount}円</p>
+                      </div>
+                    );
+                  }
+                )}
+              </div>
+            )}
+            {/* purchase */}
             <div>
               <div className={styles.itemLarge}>
                 <p className={styles.mb20}>概算損益（日別）</p>

@@ -109,5 +109,14 @@ export function calculateDaysFromStartOfMonth(dateString) {
   return day;
 }
 
+export function getValueByKey(array, key) {
+  const uniqueValues = new Set();
+  array.forEach((obj) => {
+    if (obj.hasOwnProperty(key)) {
+      uniqueValues.add(obj[key].value);
+    }
+  });
+  return Array.from(uniqueValues);
+}
 
 
