@@ -18,6 +18,7 @@ import {
   ID_APP_STAFF,
   ID_APP_CONFIG_SETTING,
 } from "../../common/const";
+import dayjs from "dayjs";
 
 const idApp = kintone.app.getId();
 const fetchFileKey = (fileKey, setFileList) => {
@@ -85,6 +86,7 @@ export default function Detail({ record, isAdmin }) {
     profit_estimated_by_day: 0,
   });
   const [dayFromStartOfMonth, setDayFromStartOfMonth] = useState(0);
+  const [commodities, setCommodities] = useState([]);
 
   const refCopy = useRef();
 
@@ -223,6 +225,7 @@ export default function Detail({ record, isAdmin }) {
         fetchCustomersComeByMonth(ID_APP_CUSTOMER_COME, record.date.value),
         fetchRegisterStaffsByMonth(ID_APP_REGISTER, record.date.value),
         fetchReportByMonth(record.date.value),
+        fetchCommodities(record.date.value),
       ];
 
       try {
@@ -233,7 +236,9 @@ export default function Detail({ record, isAdmin }) {
           customersComeByMonth,
           staffsByMonth,
           reportByMonth,
+          commodities,
         ] = await Promise.all(promises);
+
         if (configSetting.records.length > 0) {
           const firstConfigSetting = configSetting.records[0];
           setSettingConfig({
@@ -265,6 +270,7 @@ export default function Detail({ record, isAdmin }) {
           totalByMonth.totalRevenueByMonth,
           reportByMonth
         );
+        setCommodities(commodities);
       } catch (error) {}
     };
     fetchDataCustomer();
@@ -597,6 +603,19 @@ export default function Detail({ record, isAdmin }) {
     });
   }
 
+  function fetchCommodities(date) {
+    const formatDate = dayjs(date).format("YYYY-MM-DD");
+    let allRecords = [];
+    let params = {
+      app: 47,
+      query: `createDate = "${formatDate}"`,
+    };
+    return kintone.api("/k/v1/records", "GET", params).then(function (resp) {
+      allRecords = allRecords.concat(resp.records);
+      return allRecords;
+    });
+  }
+
   const renderChildTotal = (field) => {
     return customersCome.map((customer) => {
       return (
@@ -612,6 +631,7 @@ export default function Detail({ record, isAdmin }) {
       );
     });
   };
+
   const handleCopyText = () => {
     let textCopy = "";
     const childNodesArray = Array.from(refCopy.current.childNodes);
@@ -630,7 +650,7 @@ export default function Detail({ record, isAdmin }) {
         textCopy += text;
       });
     });
-    message.success('コピーできました。!')
+    message.success("コピーできました。!");
     navigator.clipboard.writeText(textCopy);
   };
 
@@ -728,6 +748,24 @@ export default function Detail({ record, isAdmin }) {
                 })}
               </div>
             </div>
+
+            {/* commodities */}
+            {commodities.length > 0 && (
+              <div>
+                <div className={styles.itemLarge}>
+                  <p className={styles.mb20}>【空いたボトル】</p>
+                </div>
+
+                {commodities.map((commodity) => {
+                  return (
+                    <div className={styles.parentItem}>
+                      <p className={styles.w30}>{commodity.trademark.value}</p>
+                      <p className={styles.w70}>{commodity.quantity.value}本</p>
+                    </div>
+                  );
+                })}
+              </div>
+            )}
             {/* total by day */}
             <div>
               <div className={styles.itemLarge}>
