@@ -10,6 +10,7 @@ import {
   Row,
   Select,
   Upload,
+  message,
 } from "antd";
 import dayjs from "dayjs";
 import {
@@ -24,10 +25,12 @@ import {
   ID_APP_CUSTOMER_COME,
   ID_APP_REGISTER,
   ID_APP_STAFF,
-  ID_APP_CONFIG_SETTING
+  ID_APP_CONFIG_SETTING,
 } from "../../../common/const";
 import styles from "./styles.module.css";
 import CardComponent from "../../common/card/CardComponent";
+import BrokenGlass from "./borkenGlass";
+import Purchase from "./purchase";
 
 const { TextArea } = Input;
 
@@ -128,7 +131,6 @@ function fetchAllRecordsStaff(idsString, opt_offset, opt_limit, opt_records) {
   let params = {
     app: ID_APP_STAFF,
     query: `$id in (${idsString}) limit ${limit} offset ${offset}`,
-    fields: ["salary", "$id", "name"],
   };
   return (
     idsString?.length &&
@@ -166,6 +168,8 @@ function fetchConfigSetting() {
 
 export default function FormRegister({ type, event, isAdmin }) {
   const [form] = Form.useForm();
+  // const [formBrokenGlass] = Form.useForm();
+  // const [formPurchase] = Form.useForm();
   const [staff, setStaff] = useState([]);
   const [fileKeyBill, setFileKeyBill] = useState();
   const [fileKeyReceipt, setFileKeyReceipt] = useState();
@@ -217,6 +221,12 @@ export default function FormRegister({ type, event, isAdmin }) {
   }
 
   const handleChange = (value, type) => {
+    const arrayImgType = ['image/png', 'image/jpg', 'image/jpeg'];
+    const isImage = arrayImgType.includes(value.file.type);
+    if (!isImage) {
+      message.error(`画像の形式が正しくありません！`);
+      return;
+    }
     if (type === "bill") {
       setFileListBill(value.fileList);
     } else {
@@ -261,16 +271,20 @@ export default function FormRegister({ type, event, isAdmin }) {
     }, 0);
   };
 
-  const onFinish = (payload) => {
+  const onFinish = async (payload) => {
     const rent = payload.rent || 0;
     const fixedCost = payload.fixed_cost || 0;
     const profit =
       parseFloat(payload.total_revenue) -
-      (parseFloat(payload.revenue_staff) +
-        parseFloat(purchaseAmount) +
-        parseFloat(rent) +
-        parseFloat(fixedCost) +
-        parseFloat(variableCost));
+      parseFloat(payload.revenue_staff) -
+      parseFloat(purchaseAmount) -
+      parseFloat(rent) -
+      parseFloat(fixedCost) -
+      parseFloat(variableCost);
+
+    const advanceRevenue = parseFloat(payload.total_revenue) + parseFloat(payload.total_card_advance) +
+    parseFloat(payload.total_cash_advance) +
+    parseFloat(payload.total_transfer_advance);
 
     let body = {
       app: idApp,
@@ -305,6 +319,15 @@ export default function FormRegister({ type, event, isAdmin }) {
         profit: {
           value: profit,
         },
+        brokenGlass: {
+          value: JSON.stringify(payload.brokenGlass),
+        },
+        purchaseList: {
+          value: JSON.stringify(payload.purchaseList),
+        },
+        advanceRevenue: {
+          value: advanceRevenue
+        }
       },
     };
 
@@ -390,16 +413,31 @@ export default function FormRegister({ type, event, isAdmin }) {
       fetchReportByDate(idApp, date),
       fetchConfigSetting(),
     ]);
+
     const staffIds = staffs.map((val) => val.id_staff.value);
     const infoStaffs = await fetchAllRecordsStaff(staffIds.join(", "));
     let staffRevenue = 0;
+    let totalTips = 0;
+    let totalFeeTrip = 0;
     if (infoStaffs) {
       const salarys = {};
       infoStaffs.forEach((val) => {
         Object.assign(salarys, {
           [val.$id.value]: val.salary.value,
         });
+        const customerSelected = customersCome.find(
+          ({ id_staff_tip, check_tip }) => {
+            return check_tip.value[0] && id_staff_tip.value === val.$id.value;
+          }
+        );
+        const totalSales =
+          parseInt(customerSelected?.cash_sales.value || 0) +
+          parseInt(customerSelected?.card_sales.value || 0) +
+          parseInt(customerSelected?.transfer_sales.value || 0);
+        totalTips += totalSales * parseFloat(val.rate_tips.value / 100);
+        totalFeeTrip += parseFloat(val.fee_trip.value);
       });
+
       staffs.forEach(
         (val) =>
           (staffRevenue +=
@@ -438,15 +476,46 @@ export default function FormRegister({ type, event, isAdmin }) {
       form.setFieldValue("total_card_advance", totalCardAdvance);
       form.setFieldValue("total_transfer_advance", totalTransferAdvance);
       form.setFieldValue("total_revenue", totalRevenue);
-      setConfigCost(totalRevenue, configSetting);
+
+      let purchaseAmount = 0;
+      let rent = 0;
+      let fixedCost = 0;
+      let variableCost = 0;
+      if (configSetting.records.length > 0) {
+        const firstConfigSetting = configSetting.records[0];
+        purchaseAmount =
+          totalRevenue *
+          (firstConfigSetting.sales_estimated_percent_by_day.value / 100);
+        rent = firstConfigSetting.rent_per_day_by_day.value;
+        variableCost =
+          totalRevenue *
+          (firstConfigSetting.variable_cost_percent_by_day.value / 100);
+        fixedCost = firstConfigSetting.fixed_cost_estimated_by_day.value;
+      }
+      form.setFieldValue("rent", rent);
+      form.setFieldValue("fixed_cost", fixedCost);
+      setPurchaseAmount(purchaseAmount);
+      setVariableCost(variableCost);
+
+      if (Object.keys(reports).length !== 0) {
+        setIdReport(reports.$id.value);
+        reports.brokenGlass.value &&
+          form.setFieldValue(
+            "brokenGlass",
+            JSON.parse(reports.brokenGlass.value)
+          );
+        reports.purchaseList.value &&
+          form.setFieldValue(
+            "purchaseList",
+            JSON.parse(reports.purchaseList.value)
+          );
+      } else {
+        setIdReport(0);
+      }
     }
-    const revenueStaff = isNaN(staffRevenue) ? 0 : staffRevenue;
+
+    const revenueStaff = isNaN(staffRevenue) ? 0 : staffRevenue + totalFeeTrip + totalTips;
     form.setFieldValue("revenue_staff", revenueStaff.toFixed(1));
-    if (Object.keys(reports).length !== 0) {
-      setIdReport(reports.$id.value);
-    } else {
-      setIdReport(0);
-    }
   };
 
   const setConfigCost = (totalRevenue, configSetting) => {
@@ -551,6 +620,7 @@ export default function FormRegister({ type, event, isAdmin }) {
         renderInput: () => (
           <InputNumber
             min={1}
+            disabled
             addonAfter="円"
             formatter={(value) =>
               `${value}`.replace(/\B(?=(\d{3})+(?!\d))/g, ",")
@@ -573,6 +643,7 @@ export default function FormRegister({ type, event, isAdmin }) {
         renderInput: () => (
           <InputNumber
             min={1}
+            disabled
             addonAfter="円"
             formatter={(value) =>
               `${value}`.replace(/\B(?=(\d{3})+(?!\d))/g, ",")
@@ -722,6 +793,20 @@ export default function FormRegister({ type, event, isAdmin }) {
       },
       {
         formItemProps: {
+          label: "割れたグラス",
+          labelAlign: "left",
+        },
+        renderInput: () => <BrokenGlass form={form} />,
+      },
+      {
+        formItemProps: {
+          label: "買い出し",
+          labelAlign: "left",
+        },
+        renderInput: () => <Purchase form={form} />,
+      },
+      {
+        formItemProps: {
           label: "今日のコメント",
           name: "comment",
           labelAlign: "left",
@@ -773,6 +858,7 @@ export default function FormRegister({ type, event, isAdmin }) {
   useEffect(() => {
     if (type === "edit") {
       const data = event.record;
+
       let date = data?.date.value && dayjs(data?.date?.value);
       setTotalFormValue(date.format(FORMAT_DATE_TIME));
 
@@ -785,7 +871,10 @@ export default function FormRegister({ type, event, isAdmin }) {
             id: data.id_user_charge.value,
           }),
       });
-
+      data.brokenGlass.value &&
+        form.setFieldValue("brokenGlass", JSON.parse(data.brokenGlass.value));
+      data.purchaseList.value &&
+        form.setFieldValue("purchaseList", JSON.parse(data.purchaseList.value));
       data?.bill?.value?.length &&
         fetchFileKey(data?.bill?.value[0].fileKey, setFileListBill);
       data?.receipt?.value?.length &&

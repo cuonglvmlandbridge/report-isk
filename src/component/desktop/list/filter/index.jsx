@@ -1,107 +1,170 @@
 // eslint-disable-next-line no-unused-vars
-import React, { useState, useEffect, useRef } from 'react';
-import {Form, Row, Col, Button, Select, DatePicker, Tabs,  Space, Tag} from 'antd';
-import { formatMoney, FORMAT_DATE_TIME, getFirstAndLastDateOfCurrentMonth } from '../../../../utils/common';
-import styles from './styles.module.css';
-import dayjs from 'dayjs';
+import React, { useState, useEffect, useRef } from "react";
+import {
+  Form,
+  Row,
+  Col,
+  Button,
+  Select,
+  DatePicker,
+  Tabs,
+  Space,
+  Tag,
+} from "antd";
+import {
+  formatMoney,
+  FORMAT_DATE_TIME,
+  getFirstAndLastDateOfCurrentMonth,
+} from "../../../../utils/common";
+import styles from "./styles.module.css";
+import dayjs from "dayjs";
 
-export default function FilterList({onFinish, fields, totalRevenue, dayActive, getSelectedDay}) {
+export default function FilterList({
+  onFinish,
+  fields,
+  totalRevenue,
+  totalRevenueStaff,
+  totalAdvanceRevenue,
+  dayActive,
+  getSelectedDay,
+}) {
   const { RangePicker } = DatePicker;
   const [form] = Form.useForm();
   const buttonRef = useRef(null);
 
-  const [tabActive, setTabActive] = useState('1');
+  const [tabActive, setTabActive] = useState("1");
 
   const tabs = [
     {
-      id: '1',
-      label: '日別'
+      id: "1",
+      label: "日別",
     },
     {
-      id: '2',
-      label: '月別'
+      id: "2",
+      label: "月別",
     },
     {
-      id: '3',
-      label: '年別'
-    }
+      id: "3",
+      label: "年別",
+    },
   ];
-
 
   const days = [
     {
-      value: '1',
-      label: '月曜日'
+      value: "1",
+      label: "月曜日",
     },
     {
-      value: '2',
-      label: '火曜日'
+      value: "2",
+      label: "火曜日",
     },
     {
-      value: '3',
-      label: '水曜日'
+      value: "3",
+      label: "水曜日",
     },
     {
-      value: '4',
-      label: '木曜日'
+      value: "4",
+      label: "木曜日",
     },
     {
-      value: '5',
-      label: '金曜日'
-    },    
-    {
-      value: '6',
-      label: '土曜日'
+      value: "5",
+      label: "金曜日",
     },
     {
-      value: '0',
-      label: '日曜日'
-    }
+      value: "6",
+      label: "土曜日",
+    },
+    {
+      value: "0",
+      label: "日曜日",
+    },
   ];
 
   useEffect(() => {
     const { firstDate, lastDate } = getFirstAndLastDateOfCurrentMonth();
-    const defaultRange = [dayjs(firstDate, FORMAT_DATE_TIME), dayjs(lastDate, FORMAT_DATE_TIME)];
+    const defaultRange = [
+      dayjs(firstDate, FORMAT_DATE_TIME),
+      dayjs(lastDate, FORMAT_DATE_TIME),
+    ];
     form.setFieldsValue({ date: defaultRange });
   }, []);
 
   const onChange = (key) => {
-    setTabActive(key)
-    const { firstDate, lastDate } = getFirstAndLastDateOfCurrentMonth();
-    if (key === 1) {
-      const defaultRange = [dayjs(firstDate, FORMAT_DATE_TIME), dayjs(lastDate, FORMAT_DATE_TIME)];
-      form.setFieldsValue({ date: defaultRange });
-    } else if (key == 2) {
-      form.setFieldsValue({ month: dayjs(firstDate)});
-    } else if (key == 3) {
-      form.setFieldsValue({ year: dayjs(firstDate)});
-    }
+    setTabActive(key);
+    setTimeout(() => {
+      const { firstDate, lastDate } = getFirstAndLastDateOfCurrentMonth();
+      if (key === 1) {
+        const defaultRange = [
+          dayjs(firstDate, FORMAT_DATE_TIME),
+          dayjs(lastDate, FORMAT_DATE_TIME),
+        ];
+        form.setFieldValue("date", defaultRange);
+      } else if (key == 2) {
+        form.setFieldValue("month", dayjs(firstDate));
+      } else if (key == 3) {
+        form.setFieldValue("year", dayjs(firstDate));
+      }
+      form.submit();
+    }, 100);
   };
 
   const renderModalContentDetail = (data) => {
     return (
       <Row gutter={50} className={styles.formItem}>
         {data.map((el, index2) => (
-          <Col className="gutter-row" span={12} key={`${el?.formItemProps?.name}-${index2}`}>
-            <Form.Item {...el.formItemProps}>
-              {el.renderInput()}
-            </Form.Item>  
+          <Col
+            className="gutter-row"
+            span={12}
+            key={`${el?.formItemProps?.name}-${index2}`}
+          >
+            <Form.Item {...el.formItemProps}>{el.renderInput()}</Form.Item>
             <Space size={20}>
-              {
-                days.map(({label, value}) => {
-                  return <Button key={value} className={`${styles.btnDay} ${value === dayActive && styles.activeDay}`} onClick={() => getSelectedDay(value)}>{label}</Button>
-                })
-              }
-            </Space>  
+              {days.map(({ label, value }) => {
+                return (
+                  <Button
+                    key={value}
+                    className={`${styles.btnDay} ${
+                      value === dayActive && styles.activeDay
+                    }`}
+                    onClick={() => getSelectedDay(value)}
+                  >
+                    {label}
+                  </Button>
+                );
+              })}
+            </Space>
           </Col>
         ))}
         <Col className="gutter-row" span={3}>
-          <Button ref={buttonRef} htmlType={'submit'} type={'primary'}>
+          <Button ref={buttonRef} htmlType={"submit"} type={"primary"}>
             検索
           </Button>
         </Col>
         <Col className={`gutter-row ${styles.flexCenter}`} span={9}>
-          総売上: <span className={styles.fsLarge}>{totalRevenue > 0 ? formatMoney(totalRevenue) : `0円`}</span>
+          <div>
+            総売上（立替含む）:
+            <span className={styles.fsLarge}>
+              {totalRevenue > 0 ? formatMoney(totalRevenue) : `0円`}
+            </span>
+          </div>
+          <div>
+            総売上（立替含まない）:
+            <span className={styles.fsLarge}>
+              {totalAdvanceRevenue > 0 ? formatMoney(totalAdvanceRevenue) : `0円`}
+            </span>
+          </div>
+          <div>
+            総人件費:
+            <span className={styles.fsLarge}>
+              {totalRevenueStaff > 0 ? formatMoney(totalRevenueStaff) : `0円`}
+            </span>
+          </div>
+          <div>
+            人件費割合:
+            <span className={styles.fsLarge}>
+              {totalRevenueStaff > 0 && totalRevenue> 0 ? formatMoney(totalRevenue/totalRevenueStaff) : `0円`}
+            </span>
+          </div>
         </Col>
       </Row>
     );
@@ -111,9 +174,9 @@ export default function FilterList({onFinish, fields, totalRevenue, dayActive, g
     const generalInformationInput = [
       {
         formItemProps: {
-          label: '日付検索',
-          name: 'date',
-          labelAlign: 'left',
+          label: "日付検索",
+          name: "date",
+          labelAlign: "left",
         },
         renderInput: () => <RangePicker format={FORMAT_DATE_TIME} allowClear />,
       },
@@ -121,35 +184,50 @@ export default function FilterList({onFinish, fields, totalRevenue, dayActive, g
     const generalInformationInputMonth = [
       {
         formItemProps: {
-          label: '月付検索',
-          name: 'month',
-          labelAlign: 'left',
+          label: "月付検索",
+          name: "month",
+          labelAlign: "left",
         },
-        renderInput: () => <DatePicker picker="month" format='YYYY/MM' allowClear placeholder={''} />,
+        renderInput: () => (
+          <DatePicker
+            picker="month"
+            format="YYYY/MM"
+            allowClear
+            placeholder={""}
+          />
+        ),
       },
     ];
     const generalInformationInputYear = [
       {
         formItemProps: {
-          label: '年付検索',
-          name: 'year',
-          labelAlign: 'left',
+          label: "年付検索",
+          name: "year",
+          labelAlign: "left",
         },
-        renderInput: () => <DatePicker picker="year" format='YYYY' allowClear placeholder={''} />,
+        renderInput: () => (
+          <DatePicker picker="year" format="YYYY" allowClear placeholder={""} />
+        ),
       },
     ];
     return (
       <div className={styles.formFilter}>
         <Form form={form} autoComplete="off" onFinish={onSubmitForm}>
-          {renderModalContentDetail(tabActive === '1' ? generalInformationInput : tabActive === '2' ? generalInformationInputMonth : generalInformationInputYear)}
+          {renderModalContentDetail(
+            tabActive === "1"
+              ? generalInformationInput
+              : tabActive === "2"
+              ? generalInformationInputMonth
+              : generalInformationInputYear
+          )}
         </Form>
       </div>
     );
   };
 
   const onSubmitForm = (payload) => {
-    onFinish && onFinish(payload)
-  }
+    onFinish && onFinish(payload);
+  };
 
   return (
     <div>
@@ -168,5 +246,5 @@ export default function FilterList({onFinish, fields, totalRevenue, dayActive, g
       </div>
       {renderModalContent()}
     </div>
-  )
+  );
 }

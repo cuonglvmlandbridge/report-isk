@@ -115,18 +115,18 @@ p {
   border-right: 10px solid transparent;
   border-bottom: 10px solid green;
 }
-.arrowUp, .arrowDown {
+.arrowUp, .arrowDown, .arrowDownSm {
   position: relative;
   padding-left: 30px;
 }
-.arrowDown {
+.arrowDown, .arrowDownSm {
   color: #f00;
 }
 .arrowDown::after {
   content: "";
   display: block;
   position: absolute;
-  top: 13px;
+  top: 9px;
   left: 0;
   width: 0px;
   height: 0px;
@@ -143,4 +143,21 @@ p {
 .comment {
   white-space: pre-line;
   line-height: 25px;
+}
+.flex {
+  display: flex;
+  width: 100%;
+  justify-content: space-between;
+}
+.arrowDownSm::after {
+  content: "";
+  display: block;
+  position: absolute;
+  top: 8px;
+  left: 5px;
+  width: 0px;
+  height: 0px;
+  border-left: 8px solid transparent;
+  border-right: 8px solid transparent;
+  border-bottom: 8px solid #f00;
 }
